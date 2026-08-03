@@ -152,7 +152,7 @@
   </div>
 
 <script>
-// 1. 所有人員名單
+// 所有人員名單
 const allStaffNames = [
   "洪承緯", "呂喬瑋", "吳和融", "劉奕呈", 
   "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛",
@@ -160,15 +160,13 @@ const allStaffNames = [
   "幸秉憲", "吳金發", "呂正金"
 ];
 
-// 2. 性別標記 (M: 男, F: 女)
+// 性別精確對照 (M: 男, F: 女)
 const genderMap = {
   "洪承緯": "M", "呂喬瑋": "M", "吳和融": "M", "劉奕呈": "M",
-  "許郁娸": "F", "祝暉晴": "F", "洪書念(待定)": "F", "吳閔媛": "F",
-  "賴良昭": "M", "陳建台": "M", "高睿理": "M", "林金文": "M", 
-  "幸秉憲": "M", "吳金發": "M", "呂正金": "M"
+  "許郁娸": "F", "祝暉晴": "F", "洪書念(待定)": "F", "吳閔媛": "F"
 };
 
-// 3. 夫妻嚴格對照表
+// 夫妻精確雙向對照
 const spouseMap = {
   "洪承緯": "洪書念(待定)",
   "洪書念(待定)": "洪承緯",
@@ -176,11 +174,10 @@ const spouseMap = {
   "吳閔媛": "吳和融"
 };
 
-// 4. 各崗位可用人員
+// 各崗位可用人員
 const staffPool = {
+  avPool: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛"],
   openDoor: ["賴良昭", "洪承緯", "劉奕呈", "陳建台"],
-  avComputer: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛"],
-  avAudio: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛"],
   greeterDoor: ["高睿理", "林金文", "幸秉憲", "陳建台", "賴良昭"],
   greeterCount: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"],
   stageService: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"]
@@ -242,44 +239,77 @@ function initCounts() {
 }
 
 function shuffle(array) {
-  return array.sort(() => Math.random() - 0.5);
+  return [...array].sort(() => Math.random() - 0.5);
 }
 
-// 影音部嚴格配對檢查（硬性規範：必須是夫妻關係，或同性別）
-function isStrictValidAVPair(p1, p2) {
-  if (!p1 || !p2) return false;
+// 驗證兩人是否滿足 [夫妻] 或 [同性別]
+function isValidAVCombination(p1, p2) {
+  if (!p1 || !p2 || p1 === p2) return false;
   
-  // 規則 1：如果是夫妻，允許搭檔
-  const isSpouse = spouseMap[p1] === p2;
-  if (isSpouse) return true;
+  // 情況 1：夫妻關係 -> 合法
+  if (spouseMap[p1] === p2) return true;
 
-  // 規則 2：如果有一方是夫妻檔之一，但另一半不是其配偶，則拒絕（防止夫妻被分拆給異性）
-  // 規則 3：若非夫妻，則必須滿足男男或女女（同性別）
-  const sameGender = genderMap[p1] === genderMap[p2];
-  return sameGender;
+  // 情況 2：非夫妻，但兩人都存在性別標籤且性別相同 (男男 或 女女) -> 合法
+  if (genderMap[p1] && genderMap[p2] && genderMap[p1] === genderMap[p2]) {
+    return true;
+  }
+
+  // 其餘（例如非夫妻的男女混搭）-> 一律非法
+  return false;
 }
 
-// 通用單人挑選邏輯
+// 影音部專用挑選邏輯 (傳入可用的影音人員名單)
+function pickStrictAVPair(assignedThisPeriod, absentSet) {
+  const available = staffPool.avPool.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
+  const validPairs = [];
+
+  // 窮舉所有可用人員的兩兩組合
+  for (let i = 0; i < available.length; i++) {
+    for (let j = 0; j < available.length; j++) {
+      if (i !== j) {
+        const p1 = available[i];
+        const p2 = available[j];
+        if (isValidAVCombination(p1, p2)) {
+          validPairs.push([p1, p2]);
+        }
+      }
+    }
+  }
+
+  // 若完全無合規組合
+  if (validPairs.length === 0) {
+    return ["人力不足(需調整)", "人力不足(需調整)"];
+  }
+
+  // 隨機打亂並按累計服務次數由低到高排序
+  const shuffledPairs = shuffle(validPairs);
+  shuffledPairs.sort((a, b) => {
+    const scoreA = (serviceCounts[a[0]] || 0) + (serviceCounts[a[1]] || 0);
+    const scoreB = (serviceCounts[b[0]] || 0) + (serviceCounts[b[1]] || 0);
+    return scoreA - scoreB;
+  });
+
+  const selectedPair = shuffledPairs[0];
+  
+  assignedThisPeriod.add(selectedPair[0]);
+  assignedThisPeriod.add(selectedPair[1]);
+  serviceCounts[selectedPair[0]] = (serviceCounts[selectedPair[0]] || 0) + 1;
+  serviceCounts[selectedPair[1]] = (serviceCounts[selectedPair[1]] || 0) + 1;
+
+  return selectedPair; // [電腦, 音響]
+}
+
+// 通用單人指派邏輯 (非影音崗位使用)
 function pickPerson(candidates, assignedThisPeriod, absentSet) {
   let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
+  
   if (available.length === 0) {
     const backup = candidates.filter(p => !absentSet.has(p));
     return backup.length > 0 ? backup[0] : "無可用人選";
   }
 
-  available = shuffle([...available]);
-
-  available.sort((a, b) => {
-    const aSpouse = spouseMap[a];
-    const bSpouse = spouseMap[b];
-    const aSpouseIsAssigned = aSpouse && assignedThisPeriod.has(aSpouse);
-    const bSpouseIsAssigned = bSpouse && assignedThisPeriod.has(bSpouse);
-
-    if (aSpouseIsAssigned && !bSpouseIsAssigned) return -100;
-    if (!aSpouseIsAssigned && bSpouseIsAssigned) return 100;
-
-    return (serviceCounts[a] || 0) - (serviceCounts[b] || 0);
-  });
+  available = shuffle(available);
+  available.sort((a, b) => (serviceCounts[a] || 0) - (serviceCounts[b] || 0));
 
   const picked = available[0];
   assignedThisPeriod.add(picked);
@@ -287,47 +317,21 @@ function pickPerson(candidates, assignedThisPeriod, absentSet) {
   return picked;
 }
 
-// 影音部雙人選拔邏輯（確保正職 + 支援強綁定合法組合）
-function pickAVPair(candidates, assignedThisPeriod, absentSet) {
-  let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
-  available = shuffle([...available]);
-  available.sort((a, b) => (serviceCounts[a] || 0) - (serviceCounts[b] || 0));
-
-  // 搜尋符合硬性條件的 pair
-  for (let i = 0; i < available.length; i++) {
-    for (let j = i + 1; j < available.length; j++) {
-      const p1 = available[i];
-      const p2 = available[j];
-      
-      if (isStrictValidAVPair(p1, p2)) {
-        assignedThisPeriod.add(p1);
-        assignedThisPeriod.add(p2);
-        serviceCounts[p1] = (serviceCounts[p1] || 0) + 1;
-        serviceCounts[p2] = (serviceCounts[p2] || 0) + 1;
-        return [p1, p2];
-      }
-    }
-  }
-
-  // 保底退路（備用）
-  const main = pickPerson(candidates, assignedThisPeriod, absentSet);
-  const support = pickPerson(candidates, assignedThisPeriod, absentSet);
-  return [main, support];
-}
-
 function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
   const assigned = new Set();
   const absentSet = getAbsentListForPeriod(startDateStr, endDateStr);
 
-  // 1. 開門
+  // 【核心調整】：優先指派影音部！確保影音部不被其他崗位搶人導致組合破局
+  
+  // 1. 影音部 正職 (電腦主責 X 音響主責)
+  const [computerMain, audioMain] = pickStrictAVPair(assigned, absentSet);
+
+  // 2. 影音部 支援 (電腦支援 X 音響支援)
+  const [computerSupport, audioSupport] = pickStrictAVPair(assigned, absentSet);
+
+  // 3. 第一位到聚會所開門 (2位)
   const open1 = pickPerson(staffPool.openDoor, assigned, absentSet);
   const open2 = pickPerson(staffPool.openDoor, assigned, absentSet);
-
-  // 2. 影音電腦 (嚴格執行：洪&洪/吳&吳夫妻檔 或 男男/女女)
-  const [computerMain, computerSupport] = pickAVPair(staffPool.avComputer, assigned, absentSet);
-
-  // 3. 影音音響 (嚴格執行：洪&洪/吳&吳夫妻檔 或 男男/女女)
-  const [audioMain, audioSupport] = pickAVPair(staffPool.avAudio, assigned, absentSet);
 
   // 4. 招待開門
   const gDoorMain = pickPerson(staffPool.greeterDoor, assigned, absentSet);
