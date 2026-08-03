@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>各部門服務自動輪調排班系統</title>
+  <title>埔里會眾聚會工作安排</title>
   <style>
     body {
       font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
@@ -22,23 +22,39 @@
       gap: 15px;
       align-items: center;
       margin-bottom: 15px;
+      flex-wrap: wrap;
     }
     button {
       background-color: #007bff;
       color: white;
       border: none;
-      padding: 10px 20px;
+      padding: 10px 18px;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: bold;
     }
     button:hover { background-color: #0056b3; }
+    .btn-pdf { background-color: #17a2b8; }
+    .btn-pdf:hover { background-color: #138496; }
     .btn-add { background-color: #28a745; }
     .btn-add:hover { background-color: #218838; }
     .btn-danger { background-color: #dc3545; padding: 4px 8px; font-size: 12px; }
     .btn-danger:hover { background-color: #c82333; }
     
+    .table-header-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 10px;
+    }
+    .table-header-info h2 { margin: 0; }
+    .created-date {
+      font-weight: bold;
+      color: #333;
+      font-size: 0.95em;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -66,6 +82,14 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
+
+    /* 📄 列印/輸出 PDF 專用 CSS 樣式設定 */
+    @media print {
+      body { background-color: white; margin: 0; }
+      .no-print, .card:not(.print-area) { display: none !important; }
+      .card.print-area { box-shadow: none; padding: 0; }
+      th { background-color: #3b82f6 !important; color: white !important; -webkit-print-color-adjust: exact; }
+    }
   </style>
 </head>
 <body>
@@ -73,16 +97,17 @@
   <h1>🗓️ 聚會服務人員自動排班系統</h1>
 
   <!-- 控制列 -->
-  <div class="card">
+  <div class="card no-print">
     <div class="control-panel">
       <label for="monthSelect"><b>選擇排班月份：</b></label>
       <input type="month" id="monthSelect" value="2026-08">
       <button onclick="generateSchedule()">🎲 重新編排 / 生成排班表</button>
+      <button class="btn-pdf" onclick="exportToPDF()">📄 匯出 PDF / 列印</button>
     </div>
   </div>
 
   <!-- 請假登記區塊 -->
-  <div class="card">
+  <div class="card no-print">
     <h2>📝 如有預知不在的日期可以先登記，利於當天工作調度</h2>
     <table class="leave-table" id="leaveTable">
       <thead>
@@ -103,8 +128,12 @@
   </div>
 
   <!-- 排班結果 -->
-  <div class="card">
-    <h2>📅 排班結果</h2>
+  <div class="card print-area">
+    <div class="table-header-info">
+      <h2 id="scheduleTitle">2026-08月 各部門服務分配表</h2>
+      <div class="created-date" id="createdDateDisplay">製造日期：YYYYMMDD</div>
+    </div>
+    
     <table id="resultTable">
       <thead>
         <tr>
@@ -204,7 +233,6 @@ function initCounts() {
   });
 }
 
-// 隨機打亂陣列（增加多次點擊時的排列變化度）
 function shuffle(array) {
   return array.sort(() => Math.random() - 0.5);
 }
@@ -217,10 +245,8 @@ function pickPerson(candidates, assignedThisPeriod, absentSet) {
     return backup.length > 0 ? backup[0] : "無可用人選";
   }
 
-  // 先隨機打亂候選名單，確保隨機性
   available = shuffle([...available]);
 
-  // 權重排序
   available.sort((a, b) => {
     const aSpouse = spouseMap[a];
     const bSpouse = spouseMap[b];
@@ -228,11 +254,9 @@ function pickPerson(candidates, assignedThisPeriod, absentSet) {
     const aSpouseIsAssigned = aSpouse && assignedThisPeriod.has(aSpouse);
     const bSpouseIsAssigned = bSpouse && assignedThisPeriod.has(bSpouse);
 
-    // 1. 夫妻同期排班優先
     if (aSpouseIsAssigned && !bSpouseIsAssigned) return -1;
     if (!aSpouseIsAssigned && bSpouseIsAssigned) return 1;
 
-    // 2. 平均分配次數優先
     return (serviceCounts[a] || 0) - (serviceCounts[b] || 0);
   });
 
@@ -279,11 +303,24 @@ function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
   `;
 }
 
+// 格式化當前日期 YYYYMMDD
+function getTodayString() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}`;
+}
+
 function generateSchedule() {
-  initCounts(); // 每次點擊重新計算
+  initCounts();
   const monthVal = document.getElementById("monthSelect").value;
   const [year, month] = monthVal.split("-");
   
+  // 更新標題與製造日期
+  document.getElementById("scheduleTitle").innerText = `${year}-${month}月 各部門服務分配表`;
+  document.getElementById("createdDateDisplay").innerText = `製造日期：${getTodayString()}`;
+
   const m = parseInt(month);
   const period1Name = `${m}月1-16日`;
   const period2Name = `${m}月16-31日`;
@@ -297,6 +334,11 @@ function generateSchedule() {
   tbody.innerHTML = 
     generatePeriodSchedule(period1Name, p1Start, p1End) + 
     generatePeriodSchedule(period2Name, p2Start, p2End);
+}
+
+// 匯出 PDF (使用瀏覽器內建列印機制)
+function exportToPDF() {
+  window.print();
 }
 
 window.onload = function() {
