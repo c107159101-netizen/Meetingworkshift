@@ -160,7 +160,15 @@ const allStaffNames = [
   "幸秉憲", "吳金發", "呂正金"
 ];
 
-// 2. 夫妻嚴格綁定對照表
+// 2. 性別標記 (M: 男, F: 女)
+const genderMap = {
+  "洪承緯": "M", "呂喬瑋": "M", "吳和融": "M", "劉奕呈": "M",
+  "許郁娸": "F", "祝暉晴": "F", "洪書念(待定)": "F", "吳閔媛": "F",
+  "賴良昭": "M", "陳建台": "M", "高睿理": "M", "林金文": "M", 
+  "幸秉憲": "M", "吳金發": "M", "呂正金": "M"
+};
+
+// 3. 夫妻配對
 const spouseMap = {
   "洪承緯": "洪書念(待定)",
   "洪書念(待定)": "洪承緯",
@@ -168,7 +176,7 @@ const spouseMap = {
   "吳閔媛": "吳和融"
 };
 
-// 3. 各崗位可用人員
+// 4. 各崗位可用人員
 const staffPool = {
   openDoor: ["賴良昭", "洪承緯", "劉奕呈", "陳建台"],
   avComputer: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛"],
@@ -200,7 +208,6 @@ function addLeaveRow(defaultName = "", defaultDate = "") {
   tbody.appendChild(tr);
 }
 
-// 請假檢查：一人請假，夫妻皆連動請假
 function getAbsentListForPeriod(startDateStr, endDateStr) {
   const absentSet = new Set();
   const rows = document.querySelectorAll("#leaveTbody tr");
@@ -218,10 +225,7 @@ function getAbsentListForPeriod(startDateStr, endDateStr) {
         const leaveDate = new Date(input.value);
         if (leaveDate >= start && leaveDate <= end) {
           absentSet.add(name);
-          // 若有配偶，配偶也同步排開
-          if (spouseMap[name]) {
-            absentSet.add(spouseMap[name]);
-          }
+          if (spouseMap[name]) absentSet.add(spouseMap[name]);
         }
       }
     });
@@ -241,10 +245,17 @@ function shuffle(array) {
   return array.sort(() => Math.random() - 0.5);
 }
 
-// 選人邏輯：夫妻綁定與優先權判定
+// 判斷兩個人搭檔是否符合規則 (夫妻 OR 同性別)
+function isValidPair(p1, p2) {
+  if (!p1 || !p2) return true;
+  const isSpouse = spouseMap[p1] === p2;
+  const sameGender = genderMap[p1] === genderMap[p2];
+  return isSpouse || sameGender;
+}
+
+// 通用選人邏輯
 function pickPerson(candidates, assignedThisPeriod, absentSet) {
   let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
-  
   if (available.length === 0) {
     const backup = candidates.filter(p => !absentSet.has(p));
     return backup.length > 0 ? backup[0] : "無可用人選";
@@ -255,45 +266,71 @@ function pickPerson(candidates, assignedThisPeriod, absentSet) {
   available.sort((a, b) => {
     const aSpouse = spouseMap[a];
     const bSpouse = spouseMap[b];
-
     const aSpouseIsAssigned = aSpouse && assignedThisPeriod.has(aSpouse);
     const bSpouseIsAssigned = bSpouse && assignedThisPeriod.has(bSpouse);
 
-    // 🌟 最高優先權：配偶本期已經在名單中，必須優先指派該人（確保夫妻同期出勤）
     if (aSpouseIsAssigned && !bSpouseIsAssigned) return -100;
     if (!aSpouseIsAssigned && bSpouseIsAssigned) return 100;
 
-    // 次高優先權：維護平均分配
     return (serviceCounts[a] || 0) - (serviceCounts[b] || 0);
   });
 
   const picked = available[0];
-  
   assignedThisPeriod.add(picked);
   serviceCounts[picked] = (serviceCounts[picked] || 0) + 1;
   return picked;
+}
+
+// 影音部專用選搭檔邏輯（強加 夫妻 OR 男男 OR 女女 限制）
+function pickAVPair(candidates, assignedThisPeriod, absentSet) {
+  let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
+  available = shuffle([...available]);
+  available.sort((a, b) => (serviceCounts[a] || 0) - (serviceCounts[b] || 0));
+
+  for (let i = 0; i < available.length; i++) {
+    for (let j = i + 1; j < available.length; j++) {
+      const p1 = available[i];
+      const p2 = available[j];
+      if (isValidPair(p1, p2)) {
+        assignedThisPeriod.add(p1);
+        assignedThisPeriod.add(p2);
+        serviceCounts[p1] = (serviceCounts[p1] || 0) + 1;
+        serviceCounts[p2] = (serviceCounts[p2] || 0) + 1;
+        return [p1, p2];
+      }
+    }
+  }
+
+  // 備用方案
+  const main = pickPerson(candidates, assignedThisPeriod, absentSet);
+  const support = pickPerson(candidates, assignedThisPeriod, absentSet);
+  return [main, support];
 }
 
 function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
   const assigned = new Set();
   const absentSet = getAbsentListForPeriod(startDateStr, endDateStr);
 
+  // 1. 第一位開門
   const open1 = pickPerson(staffPool.openDoor, assigned, absentSet);
   const open2 = pickPerson(staffPool.openDoor, assigned, absentSet);
 
-  const computerMain = pickPerson(staffPool.avComputer, assigned, absentSet);
-  const computerSupport = pickPerson(staffPool.avComputer, assigned, absentSet);
+  // 2. 影音電腦 (必須滿足 夫妻 OR 男男/女女)
+  const [computerMain, computerSupport] = pickAVPair(staffPool.avComputer, assigned, absentSet);
 
-  const audioMain = pickPerson(staffPool.avAudio, assigned, absentSet);
-  const audioSupport = pickPerson(staffPool.avAudio, assigned, absentSet);
+  // 3. 影音音響 (必須滿足 夫妻 OR 男男/女女)
+  const [audioMain, audioSupport] = pickAVPair(staffPool.avAudio, assigned, absentSet);
 
+  // 4. 招待開門
   const gDoorMain = pickPerson(staffPool.greeterDoor, assigned, absentSet);
   const gDoorSupport1 = pickPerson(staffPool.greeterDoor, assigned, absentSet);
   const gDoorSupport2 = pickPerson(staffPool.greeterDoor, assigned, absentSet);
 
+  // 5. 招待點人數
   const gCountMain = pickPerson(staffPool.greeterCount, assigned, absentSet);
   const gCountSupport = pickPerson(staffPool.greeterCount, assigned, absentSet);
 
+  // 6. 講台服務
   const stageMain = pickPerson(staffPool.stageService, assigned, absentSet);
   const stageSupport = pickPerson(staffPool.stageService, assigned, absentSet);
 
