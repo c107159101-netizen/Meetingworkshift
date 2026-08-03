@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>各部門服務自動輪調排班系統</title>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", sans-serif;
+      margin: 20px;
+      background-color: #f4f7f6;
+    }
+    h1, h2 { color: #2c3e50; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .control-panel {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    button:hover { background-color: #0056b3; }
+    .btn-add { background-color: #28a745; }
+    .btn-add:hover { background-color: #218838; }
+    .btn-danger { background-color: #dc3545; padding: 4px 8px; font-size: 12px; }
+    .btn-danger:hover { background-color: #c82333; }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #dee2e6;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #3b82f6;
+      color: white;
+    }
+    .leave-table th {
+      background-color: #6c757d;
+    }
+    .support-tag {
+      color: #666;
+      font-size: 0.9em;
+    }
+    select, input[type="date"], input[type="month"] {
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🗓️ 聚會服務人員自動排班系統</h1>
+
+  <!-- 控制列 -->
+  <div class="card">
+    <div class="control-panel">
+      <label for="monthSelect"><b>選擇排班月份：</b></label>
+      <input type="month" id="monthSelect" value="2026-08">
+      <button onclick="generateSchedule()">🎲 自動生成排班表</button>
+    </div>
+  </div>
+
+  <!-- 請假登記區塊 -->
+  <div class="card">
+    <h2>📝 如有預知不在的日期可以先登記，利於當天工作調度</h2>
+    <table class="leave-table" id="leaveTable">
+      <thead>
+        <tr>
+          <th style="width: 25%;">名字</th>
+          <th>請假日期 (1)</th>
+          <th>請假日期 (2)</th>
+          <th>請假日期 (3)</th>
+          <th style="width: 10%;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="leaveTbody">
+        <!-- 預設提供一筆資料範例 -->
+      </tbody>
+    </table>
+    <br>
+    <button class="btn-add" onclick="addLeaveRow()">➕ 新增請假登記欄</button>
+  </div>
+
+  <!-- 排班結果 -->
+  <div class="card">
+    <h2>📅 排班結果</h2>
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th>服務期間</th>
+          <th>第一位到聚會所開門</th>
+          <th>影音部 (電腦)</th>
+          <th>影音部 (音響、麥克風)</th>
+          <th>招待員 (監視器/開門)</th>
+          <th>招待員 (開始招待/點人數)</th>
+          <th>講台服務</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 排班結果會在此動態生成 -->
+      </tbody>
+    </table>
+  </div>
+
+<script>
+// 所有人員清單 (用於請假下拉選單)
+const allStaffNames = [
+  "洪承緯", "賴良昭", "劉奕呈", "陳建台", "呂喬瑋", 
+  "吳和融", "許郁媖", "祝暉晴", "高睿理", "林金文", 
+  "幸秉憲", "吳金發", "呂正金"
+];
+
+// 各崗位可用人員庫
+const staffPool = {
+  openDoor: ["賴良昭", "洪承緯", "劉奕呈", "陳建台"],
+  avComputer: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁媖", "祝暉晴"],
+  avAudio: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁媖", "祝暉晴"],
+  greeterDoor: ["高睿理", "林金文", "幸秉憲", "陳建台", "賴良昭"],
+  greeterCount: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"],
+  stageService: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"]
+};
+
+let serviceCounts = {};
+
+// 初始化或新增請假列
+function addLeaveRow(defaultName = "", defaultDate = "") {
+  const tbody = document.getElementById("leaveTbody");
+  const tr = document.createElement("tr");
+
+  let optionsHtml = '<option value="">-- 請選擇 --</option>';
+  allStaffNames.forEach(name => {
+    const selected = name === defaultName ? 'selected' : '';
+    optionsHtml += `<option value="${name}" ${selected}>${name}</option>`;
+  });
+
+  tr.innerHTML = `
+    <td><select class="leave-name">${optionsHtml}</select></td>
+    <td><input type="date" class="leave-date" value="${defaultDate}"></td>
+    <td><input type="date" class="leave-date"></td>
+    <td><input type="date" class="leave-date"></td>
+    <td><button class="btn-danger" onclick="this.closest('tr').remove()">刪除</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+// 讀取當前所有請假資料
+function getAbsentListForPeriod(startDateStr, endDateStr) {
+  const absentSet = new Set();
+  const rows = document.querySelectorAll("#leaveTbody tr");
+  
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+
+  rows.forEach(row => {
+    const name = row.querySelector(".leave-name").value;
+    if (!name) return;
+
+    const dateInputs = row.querySelectorAll(".leave-date");
+    dateInputs.forEach(input => {
+      if (input.value) {
+        const leaveDate = new Date(input.value);
+        // 判斷請假日期是否落在當期時間區段內
+        if (leaveDate >= start && leaveDate <= end) {
+          absentSet.add(name);
+        }
+      }
+    });
+  });
+
+  return absentSet;
+}
+
+function initCounts() {
+  allStaffNames.forEach(name => {
+    if (!serviceCounts[name]) serviceCounts[name] = 0;
+  });
+}
+
+// 挑選人員（加入請假過濾邏輯）
+function pickPerson(candidates, assignedThisPeriod, absentSet) {
+  // 排除：1. 本期已排班的人  2. 當期請假的人
+  const available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
+  
+  if (available.length === 0) {
+    // 若人員不足，嘗試退回允許已排班但非請假的備用人
+    const backup = candidates.filter(p => !absentSet.has(p));
+    return backup.length > 0 ? backup[0] : "無可用人選";
+  }
+
+  // 依服務次數排序，次數少者優先
+  available.sort((a, b) => (serviceCounts[a] || 0) - (serviceCounts[b] || 0));
+  const picked = available[0];
+  
+  assignedThisPeriod.add(picked);
+  serviceCounts[picked] = (serviceCounts[picked] || 0) + 1;
+  return picked;
+}
+
+function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
+  const assigned = new Set();
+  const absentSet = getAbsentListForPeriod(startDateStr, endDateStr);
+
+  const open1 = pickPerson(staffPool.openDoor, assigned, absentSet);
+  const open2 = pickPerson(staffPool.openDoor, assigned, absentSet);
+
+  const computerMain = pickPerson(staffPool.avComputer, assigned, absentSet);
+  const computerSupport = pickPerson(staffPool.avComputer, assigned, absentSet);
+
+  const audioMain = pickPerson(staffPool.avAudio, assigned, absentSet);
+  const audioSupport = pickPerson(staffPool.avAudio, assigned, absentSet);
+
+  const gDoorMain = pickPerson(staffPool.greeterDoor, assigned, absentSet);
+  const gDoorSupport1 = pickPerson(staffPool.greeterDoor, assigned, absentSet);
+  const gDoorSupport2 = pickPerson(staffPool.greeterDoor, assigned, absentSet);
+
+  const gCountMain = pickPerson(staffPool.greeterCount, assigned, absentSet);
+  const gCountSupport = pickPerson(staffPool.greeterCount, assigned, absentSet);
+
+  const stageMain = pickPerson(staffPool.stageService, assigned, absentSet);
+  const stageSupport = pickPerson(staffPool.stageService, assigned, absentSet);
+
+  return `
+    <tr>
+      <td><b>${periodName}</b></td>
+      <td>${open1}<br>${open2}</td>
+      <td>${computerMain}<br><span class="support-tag">${computerSupport} (支援)</span></td>
+      <td>${audioMain}<br><span class="support-tag">${audioSupport} (支援)</span></td>
+      <td>${gDoorMain}<br><span class="support-tag">${gDoorSupport1} (支援)</span><br><span class="support-tag">${gDoorSupport2} (支援)</span></td>
+      <td>${gCountMain}<br><span class="support-tag">${gCountSupport} (支援)</span></td>
+      <td>${stageMain}<br><span class="support-tag">${stageSupport} (支援)</span></td>
+    </tr>
+  `;
+}
+
+function generateSchedule() {
+  initCounts();
+  const monthVal = document.getElementById("monthSelect").value;
+  const [year, month] = monthVal.split("-");
+  
+  const m = parseInt(month);
+  const period1Name = `${m}月1-16日`;
+  const period2Name = `${m}月16-31日`;
+
+  // 計算該月份第一半區與第二半區的日期範圍
+  const p1Start = `${year}-${month}-01`;
+  const p1End = `${year}-${month}-16`;
+  const p2Start = `${year}-${month}-16`;
+  const p2End = `${year}-${month}-31`;
+
+  const tbody = document.querySelector("#resultTable tbody");
+  tbody.innerHTML = 
+    generatePeriodSchedule(period1Name, p1Start, p1End) + 
+    generatePeriodSchedule(period2Name, p2Start, p2End);
+}
+
+// 初始載入：加入預設範例（洪承緯 2026/08/05 請假）
+window.onload = function() {
+  addLeaveRow("洪承緯", "2026-08-05");
+  generateSchedule();
+};
+</script>
+
+</body>
+</html>
