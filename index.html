@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>埔里會眾聚會工作安排</title>
+  <title>各部門服務自動輪調排班系統</title>
   <style>
     body {
       font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
@@ -83,7 +83,6 @@
       border-radius: 4px;
     }
 
-    /* 📄 列印/輸出 PDF 專用 CSS 樣式設定 */
     @media print {
       body { background-color: white; margin: 0; }
       .no-print, .card:not(.print-area) { display: none !important; }
@@ -161,7 +160,7 @@ const allStaffNames = [
   "幸秉憲", "吳金發", "呂正金"
 ];
 
-// 2. 夫妻對照
+// 2. 夫妻嚴格綁定對照表
 const spouseMap = {
   "洪承緯": "洪書念(待定)",
   "洪書念(待定)": "洪承緯",
@@ -201,6 +200,7 @@ function addLeaveRow(defaultName = "", defaultDate = "") {
   tbody.appendChild(tr);
 }
 
+// 請假檢查：一人請假，夫妻皆連動請假
 function getAbsentListForPeriod(startDateStr, endDateStr) {
   const absentSet = new Set();
   const rows = document.querySelectorAll("#leaveTbody tr");
@@ -218,6 +218,10 @@ function getAbsentListForPeriod(startDateStr, endDateStr) {
         const leaveDate = new Date(input.value);
         if (leaveDate >= start && leaveDate <= end) {
           absentSet.add(name);
+          // 若有配偶，配偶也同步排開
+          if (spouseMap[name]) {
+            absentSet.add(spouseMap[name]);
+          }
         }
       }
     });
@@ -237,6 +241,7 @@ function shuffle(array) {
   return array.sort(() => Math.random() - 0.5);
 }
 
+// 選人邏輯：夫妻綁定與優先權判定
 function pickPerson(candidates, assignedThisPeriod, absentSet) {
   let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
   
@@ -254,9 +259,11 @@ function pickPerson(candidates, assignedThisPeriod, absentSet) {
     const aSpouseIsAssigned = aSpouse && assignedThisPeriod.has(aSpouse);
     const bSpouseIsAssigned = bSpouse && assignedThisPeriod.has(bSpouse);
 
-    if (aSpouseIsAssigned && !bSpouseIsAssigned) return -1;
-    if (!aSpouseIsAssigned && bSpouseIsAssigned) return 1;
+    // 🌟 最高優先權：配偶本期已經在名單中，必須優先指派該人（確保夫妻同期出勤）
+    if (aSpouseIsAssigned && !bSpouseIsAssigned) return -100;
+    if (!aSpouseIsAssigned && bSpouseIsAssigned) return 100;
 
+    // 次高優先權：維護平均分配
     return (serviceCounts[a] || 0) - (serviceCounts[b] || 0);
   });
 
@@ -303,7 +310,6 @@ function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
   `;
 }
 
-// 格式化當前日期 YYYYMMDD
 function getTodayString() {
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -317,7 +323,6 @@ function generateSchedule() {
   const monthVal = document.getElementById("monthSelect").value;
   const [year, month] = monthVal.split("-");
   
-  // 更新標題與製造日期
   document.getElementById("scheduleTitle").innerText = `${year}-${month}月 各部門服務分配表`;
   document.getElementById("createdDateDisplay").innerText = `製造日期：${getTodayString()}`;
 
@@ -336,7 +341,6 @@ function generateSchedule() {
     generatePeriodSchedule(period2Name, p2Start, p2End);
 }
 
-// 匯出 PDF (使用瀏覽器內建列印機制)
 function exportToPDF() {
   window.print();
 }
