@@ -5,7 +5,7 @@
   <title>各部門服務自動輪調排班系統</title>
   <style>
     body {
-      font-family: "Microsoft JhengHei", sans-serif;
+      font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
       margin: 20px;
       background-color: #f4f7f6;
     }
@@ -57,7 +57,7 @@
       background-color: #6c757d;
     }
     .support-tag {
-      color: #666;
+      color: #555;
       font-size: 0.9em;
     }
     select, input[type="date"], input[type="month"] {
@@ -94,7 +94,7 @@
         </tr>
       </thead>
       <tbody id="leaveTbody">
-        <!-- 預設提供一筆資料範例 -->
+        <!-- 動態請假列 -->
       </tbody>
     </table>
     <br>
@@ -117,24 +117,33 @@
         </tr>
       </thead>
       <tbody>
-        <!-- 排班結果會在此動態生成 -->
+        <!-- 動態產生 -->
       </tbody>
     </table>
   </div>
 
 <script>
-// 所有人員清單 (用於請假下拉選單)
+// 1. 所有參與服務之人員名單
 const allStaffNames = [
-  "洪承緯", "賴良昭", "劉奕呈", "陳建台", "呂喬瑋", 
-  "吳和融", "許郁媖", "祝暉晴", "高睿理", "林金文", 
+  "洪承緯", "呂喬瑋", "吳和融", "劉奕呈", 
+  "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛",
+  "賴良昭", "陳建台", "高睿理", "林金文", 
   "幸秉憲", "吳金發", "呂正金"
 ];
 
-// 各崗位可用人員庫
+// 2. 設定夫妻配對對照（雙向對照）
+const spouseMap = {
+  "洪承緯": "洪書念(待定)",
+  "洪書念(待定)": "洪承緯",
+  "吳和融": "吳閔媛",
+  "吳閔媛": "吳和融"
+};
+
+// 3. 各項目可用人員清單
 const staffPool = {
   openDoor: ["賴良昭", "洪承緯", "劉奕呈", "陳建台"],
-  avComputer: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁媖", "祝暉晴"],
-  avAudio: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁媖", "祝暉晴"],
+  avComputer: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈"],
+  avAudio: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念", "吳閔媛"],
   greeterDoor: ["高睿理", "林金文", "幸秉憲", "陳建台", "賴良昭"],
   greeterCount: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"],
   stageService: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"]
@@ -142,12 +151,11 @@ const staffPool = {
 
 let serviceCounts = {};
 
-// 初始化或新增請假列
 function addLeaveRow(defaultName = "", defaultDate = "") {
   const tbody = document.getElementById("leaveTbody");
   const tr = document.createElement("tr");
 
-  let optionsHtml = '<option value="">-- 請選擇 --</option>';
+  let optionsHtml = '<option value="">-- 請選擇人員 --</option>';
   allStaffNames.forEach(name => {
     const selected = name === defaultName ? 'selected' : '';
     optionsHtml += `<option value="${name}" ${selected}>${name}</option>`;
@@ -163,7 +171,6 @@ function addLeaveRow(defaultName = "", defaultDate = "") {
   tbody.appendChild(tr);
 }
 
-// 讀取當前所有請假資料
 function getAbsentListForPeriod(startDateStr, endDateStr) {
   const absentSet = new Set();
   const rows = document.querySelectorAll("#leaveTbody tr");
@@ -179,7 +186,6 @@ function getAbsentListForPeriod(startDateStr, endDateStr) {
     dateInputs.forEach(input => {
       if (input.value) {
         const leaveDate = new Date(input.value);
-        // 判斷請假日期是否落在當期時間區段內
         if (leaveDate >= start && leaveDate <= end) {
           absentSet.add(name);
         }
@@ -196,19 +202,32 @@ function initCounts() {
   });
 }
 
-// 挑選人員（加入請假過濾邏輯）
+// 演算法核心：加入夫妻同組優先權與平均分配
 function pickPerson(candidates, assignedThisPeriod, absentSet) {
-  // 排除：1. 本期已排班的人  2. 當期請假的人
   const available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
   
   if (available.length === 0) {
-    // 若人員不足，嘗試退回允許已排班但非請假的備用人
     const backup = candidates.filter(p => !absentSet.has(p));
     return backup.length > 0 ? backup[0] : "無可用人選";
   }
 
-  // 依服務次數排序，次數少者優先
-  available.sort((a, b) => (serviceCounts[a] || 0) - (serviceCounts[b] || 0));
+  // 排序權重計算
+  available.sort((a, b) => {
+    const aSpouse = spouseMap[a];
+    const bSpouse = spouseMap[b];
+
+    // 檢查伴侶是否「在本期已經被排入服務」
+    const aSpouseIsAssigned = aSpouse && assignedThisPeriod.has(aSpouse);
+    const bSpouseIsAssigned = bSpouse && assignedThisPeriod.has(bSpouse);
+
+    // 優先權 1: 伴侶本期已排班者優先（達到夫妻同期排班效果）
+    if (aSpouseIsAssigned && !bSpouseIsAssigned) return -1;
+    if (!aSpouseIsAssigned && bSpouseIsAssigned) return 1;
+
+    // 優先權 2: 服務累計次數較少者優先（維持平均分配）
+    return (serviceCounts[a] || 0) - (serviceCounts[b] || 0);
+  });
+
   const picked = available[0];
   
   assignedThisPeriod.add(picked);
@@ -261,7 +280,6 @@ function generateSchedule() {
   const period1Name = `${m}月1-16日`;
   const period2Name = `${m}月16-31日`;
 
-  // 計算該月份第一半區與第二半區的日期範圍
   const p1Start = `${year}-${month}-01`;
   const p1End = `${year}-${month}-16`;
   const p2Start = `${year}-${month}-16`;
@@ -273,7 +291,6 @@ function generateSchedule() {
     generatePeriodSchedule(period2Name, p2Start, p2End);
 }
 
-// 初始載入：加入預設範例（洪承緯 2026/08/05 請假）
 window.onload = function() {
   addLeaveRow("洪承緯", "2026-08-05");
   generateSchedule();
