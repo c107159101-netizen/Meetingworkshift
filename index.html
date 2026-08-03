@@ -27,10 +27,11 @@
       background-color: #007bff;
       color: white;
       border: none;
-      padding: 8px 16px;
+      padding: 10px 20px;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 15px;
+      font-size: 16px;
+      font-weight: bold;
     }
     button:hover { background-color: #0056b3; }
     .btn-add { background-color: #28a745; }
@@ -76,7 +77,7 @@
     <div class="control-panel">
       <label for="monthSelect"><b>選擇排班月份：</b></label>
       <input type="month" id="monthSelect" value="2026-08">
-      <button onclick="generateSchedule()">🎲 自動生成排班表</button>
+      <button onclick="generateSchedule()">🎲 重新編排 / 生成排班表</button>
     </div>
   </div>
 
@@ -123,7 +124,7 @@
   </div>
 
 <script>
-// 1. 所有參與服務之人員名單
+// 1. 所有人員名單
 const allStaffNames = [
   "洪承緯", "呂喬瑋", "吳和融", "劉奕呈", 
   "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛",
@@ -131,7 +132,7 @@ const allStaffNames = [
   "幸秉憲", "吳金發", "呂正金"
 ];
 
-// 2. 設定夫妻配對對照（雙向對照）
+// 2. 夫妻對照
 const spouseMap = {
   "洪承緯": "洪書念(待定)",
   "洪書念(待定)": "洪承緯",
@@ -139,11 +140,11 @@ const spouseMap = {
   "吳閔媛": "吳和融"
 };
 
-// 3. 各項目可用人員清單
+// 3. 各崗位可用人員
 const staffPool = {
   openDoor: ["賴良昭", "洪承緯", "劉奕呈", "陳建台"],
-  avComputer: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈"],
-  avAudio: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念", "吳閔媛"],
+  avComputer: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛"],
+  avAudio: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛"],
   greeterDoor: ["高睿理", "林金文", "幸秉憲", "陳建台", "賴良昭"],
   greeterCount: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"],
   stageService: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"]
@@ -197,34 +198,41 @@ function getAbsentListForPeriod(startDateStr, endDateStr) {
 }
 
 function initCounts() {
+  serviceCounts = {};
   allStaffNames.forEach(name => {
-    if (!serviceCounts[name]) serviceCounts[name] = 0;
+    serviceCounts[name] = 0;
   });
 }
 
-// 演算法核心：加入夫妻同組優先權與平均分配
+// 隨機打亂陣列（增加多次點擊時的排列變化度）
+function shuffle(array) {
+  return array.sort(() => Math.random() - 0.5);
+}
+
 function pickPerson(candidates, assignedThisPeriod, absentSet) {
-  const available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
+  let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
   
   if (available.length === 0) {
     const backup = candidates.filter(p => !absentSet.has(p));
     return backup.length > 0 ? backup[0] : "無可用人選";
   }
 
-  // 排序權重計算
+  // 先隨機打亂候選名單，確保隨機性
+  available = shuffle([...available]);
+
+  // 權重排序
   available.sort((a, b) => {
     const aSpouse = spouseMap[a];
     const bSpouse = spouseMap[b];
 
-    // 檢查伴侶是否「在本期已經被排入服務」
     const aSpouseIsAssigned = aSpouse && assignedThisPeriod.has(aSpouse);
     const bSpouseIsAssigned = bSpouse && assignedThisPeriod.has(bSpouse);
 
-    // 優先權 1: 伴侶本期已排班者優先（達到夫妻同期排班效果）
+    // 1. 夫妻同期排班優先
     if (aSpouseIsAssigned && !bSpouseIsAssigned) return -1;
     if (!aSpouseIsAssigned && bSpouseIsAssigned) return 1;
 
-    // 優先權 2: 服務累計次數較少者優先（維持平均分配）
+    // 2. 平均分配次數優先
     return (serviceCounts[a] || 0) - (serviceCounts[b] || 0);
   });
 
@@ -272,7 +280,7 @@ function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
 }
 
 function generateSchedule() {
-  initCounts();
+  initCounts(); // 每次點擊重新計算
   const monthVal = document.getElementById("monthSelect").value;
   const [year, month] = monthVal.split("-");
   
