@@ -155,28 +155,27 @@
 // 所有人員名單
 const allStaffNames = [
   "洪承緯", "呂喬瑋", "吳和融", "劉奕呈", 
-  "許郁娸", "祝暉晴", "洪書念(待定)", "吳閔媛",
+  "許郁娸", "祝暉晴", "洪書念", "吳閔媛",
   "賴良昭", "陳建台", "高睿理", "林金文", 
   "幸秉憲", "吳金發", "呂正金"
 ];
 
-// 性別對照 (M: 男, F: 女)
-const genderMap = {
-  "洪承緯": "M", "呂喬瑋": "M", "吳和融": "M", "劉奕呈": "M",
-  "許郁娸": "F", "祝暉晴": "F", "洪書念(待定)": "F", "吳閔媛": "F"
-};
+// 影音部可用人員分類
+// 電腦部：只能是弟兄
+const avCompMen = ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈"];
+// 音響部：弟兄 + 姊妹
+const avAudioPool = ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念", "吳閔媛"];
 
-// 夫妻對照
+// 夫妻嚴格綁定對照
 const spouseMap = {
-  "洪承緯": "洪書念(待定)",
-  "洪書念(待定)": "洪承緯",
+  "洪承緯": "洪書念",
+  "洪書念": "洪承緯",
   "吳和融": "吳閔媛",
   "吳閔媛": "吳和融"
 };
 
-// 各崗位可用人員
+// 各崗位可用人員名冊
 const staffPool = {
-  avPool: ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈", "許郁娸", "祝暉晴", "洪書念", "吳閔媛"],
   openDoor: ["賴良昭", "洪承緯", "劉奕呈", "陳建台"],
   greeterDoor: ["高睿理", "林金文", "幸秉憲", "陳建台", "賴良昭"],
   greeterCount: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"],
@@ -205,6 +204,7 @@ function addLeaveRow(defaultName = "", defaultDate = "") {
   tbody.appendChild(tr);
 }
 
+// 取得請假名單（夫妻連動：一人請假，另一半自動同步請假）
 function getAbsentListForPeriod(startDateStr, endDateStr) {
   const absentSet = new Set();
   const rows = document.querySelectorAll("#leaveTbody tr");
@@ -242,39 +242,61 @@ function shuffle(array) {
   return [...array].sort(() => Math.random() - 0.5);
 }
 
-// 驗證影音搭檔是否符合規則（夫妻 OR 同性別）
-function isValidAVCombination(p1, p2) {
-  if (!p1 || !p2 || p1 === p2) return false;
-  if (spouseMap[p1] === p2) return true;
-  if (genderMap[p1] && genderMap[p2] && genderMap[p1] === genderMap[p2]) return true;
-  return false;
-}
-
-// 影音部專用嚴格配對選擇
-function pickStrictAVPair(assignedThisPeriod, absentSet) {
-  const available = staffPool.avPool.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p));
+// 嚴格建構所有合法的 [電腦, 音響] 配對組合
+function getValidAVPairs(assignedThisPeriod, absentSet) {
   const validPairs = [];
 
-  for (let i = 0; i < available.length; i++) {
-    for (let j = 0; j < available.length; j++) {
-      if (i !== j) {
-        const p1 = available[i];
-        const p2 = available[j];
-        if (isValidAVCombination(p1, p2)) {
-          validPairs.push([p1, p2]);
-        }
-      }
+  // 1. 夫妻檔（電腦夫 + 音響妻）：只有丈夫在電腦時，妻子才能且必須在音響
+  const couples = [
+    ["洪承緯", "洪書念"],
+    ["吳和融", "吳閔媛"]
+  ];
+  couples.forEach(([husband, wife]) => {
+    if (!assignedThisPeriod.has(husband) && !assignedThisPeriod.has(wife) &&
+        !absentSet.has(husband) && !absentSet.has(wife)) {
+      validPairs.push([husband, wife]);
     }
-  }
+  });
+
+  // 2. 其餘合法搭檔
+  // 電腦端只能由男性擔任
+  const availCompMen = avCompMen.filter(m => !assignedThisPeriod.has(m) && !absentSet.has(m));
+
+  availCompMen.forEach(compMan => {
+    // 若該男性是夫妻檔之一，且其妻子也可出勤，則強制優先走夫妻檔，不拆散
+    if (compMan === "洪承緯" && !assignedThisPeriod.has("洪書念") && !absentSet.has("洪書念")) return;
+    if (compMan === "吳和融" && !assignedThisPeriod.has("吳閔媛") && !absentSet.has("吳閔媛")) return;
+
+    // 音響端候選：可為其他可用男性，或「許郁娸」、「祝暉晴」
+    // （絕對不可出現洪書念或吳閔媛，因為她們只能配自己的丈夫）
+    const availAudio = avAudioPool.filter(a => 
+      a !== compMan &&
+      a !== "洪書念" && 
+      a !== "吳閔媛" && 
+      !assignedThisPeriod.has(a) && 
+      !absentSet.has(a)
+    );
+
+    availAudio.forEach(audioPerson => {
+      validPairs.push([compMan, audioPerson]);
+    });
+  });
+
+  return validPairs;
+}
+
+// 挑選影音部組合
+function pickStrictAVPair(assignedThisPeriod, absentSet) {
+  const validPairs = getValidAVPairs(assignedThisPeriod, absentSet);
 
   if (validPairs.length === 0) {
     return ["無合格人選", "無合格人選"];
   }
 
   const shuffledPairs = shuffle(validPairs);
-  shuffledPairs.sort((a, b) => {
-    const scoreA = (serviceCounts[a[0]] || 0) + (serviceCounts[a[1]] || 0);
-    const scoreB = (serviceCounts[b[0]] || 0) + (serviceCounts[b[1]] || 0);
+  shuffledPairs.sort((pairA, pairB) => {
+    const scoreA = (serviceCounts[pairA[0]] || 0) + (serviceCounts[pairA[1]] || 0);
+    const scoreB = (serviceCounts[pairB[0]] || 0) + (serviceCounts[pairB[1]] || 0);
     return scoreA - scoreB;
   });
 
@@ -288,12 +310,10 @@ function pickStrictAVPair(assignedThisPeriod, absentSet) {
   return selectedPair; // [電腦, 音響]
 }
 
-// 通用選人邏輯：絕不允許重複選擇當期/當崗位已指派的人
+// 通用單人指派邏輯（防止同一人當天自己支援自己）
 function pickPerson(candidates, assignedThisPeriod, absentSet, localAssigned = new Set()) {
-  // 排除：1. 當期已排班人員 (assignedThisPeriod) 2. 請假人員 (absentSet) 3. 本欄位已選人員 (localAssigned)
   let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p) && !localAssigned.has(p));
   
-  // 若當期可用人選不足，允許跨崗位重複支援，但「絕不允許同一崗位自己支援自己」
   if (available.length === 0) {
     available = candidates.filter(p => !absentSet.has(p) && !localAssigned.has(p));
   }
@@ -316,29 +336,29 @@ function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
   const assigned = new Set();
   const absentSet = getAbsentListForPeriod(startDateStr, endDateStr);
 
-  // 1. 影音部：優先配對正職 (電腦 + 音響)
+  // 1. 影音部優先排定正職（電腦 + 音響）
   const [computerMain, audioMain] = pickStrictAVPair(assigned, absentSet);
 
-  // 2. 影音部：配對支援 (電腦支援 + 音響支援)，且絕不與正職重複
+  // 2. 影音部排定支援（電腦支援 + 音響支援），絕不與正職重複
   const [computerSupport, audioSupport] = pickStrictAVPair(assigned, absentSet);
 
-  // 3. 第一位到聚會所開門 (2位不同人)
+  // 3. 第一位到聚會所開門（2位不同人）
   const openLocal = new Set();
   const open1 = pickPerson(staffPool.openDoor, assigned, absentSet, openLocal);
   const open2 = pickPerson(staffPool.openDoor, assigned, absentSet, openLocal);
 
-  // 4. 招待員 (監視器/開門) (3位不同人)
+  // 4. 招待員-開門（3位不同人）
   const gDoorLocal = new Set();
   const gDoorMain = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
   const gDoorSupport1 = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
   const gDoorSupport2 = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
 
-  // 5. 招待員 (開始招待/點人數) (2位不同人，正職與支援絕對不同人)
+  // 5. 招待員-點人數（正職與支援互斥）
   const gCountLocal = new Set();
   const gCountMain = pickPerson(staffPool.greeterCount, assigned, absentSet, gCountLocal);
   const gCountSupport = pickPerson(staffPool.greeterCount, assigned, absentSet, gCountLocal);
 
-  // 6. 講台服務 (2位不同人，正職與支援絕對不同人)
+  // 6. 講台服務（正職與支援互斥）
   const stageLocal = new Set();
   const stageMain = pickPerson(staffPool.stageService, assigned, absentSet, stageLocal);
   const stageSupport = pickPerson(staffPool.stageService, assigned, absentSet, stageLocal);
@@ -373,7 +393,7 @@ function generateSchedule() {
   document.getElementById("createdDateDisplay").innerText = `製造日期：${getTodayString()}`;
 
   const m = parseInt(month);
-  const period1Name = `${m}月1-16日`;
+  const period1Name = `${m}月1-15日`;
   const period2Name = `${m}月16-31日`;
 
   const p1Start = `${year}-${month}-01`;
