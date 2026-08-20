@@ -405,11 +405,11 @@ function generateSchedule() {
   document.getElementById("createdDateDisplay").innerText = `製造日期：${getTodayString()}`;
 
   const m = parseInt(month);
-  const period1Name = `${m}月1-16日`;
+  const period1Name = `${m}月1-15日`;
   const period2Name = `${m}月16-31日`;
 
   const p1Start = `${year}-${month}-01`;
-  const p1End = `${year}-${month}-16`;
+  const p1End = `${year}-${month}-15`;
   const p2Start = `${year}-${month}-16`;
   const p2End = `${year}-${month}-31`;
 
