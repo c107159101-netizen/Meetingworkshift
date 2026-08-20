@@ -1,8 +1,10 @@
+HTML
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <title>各部門服務自動輪調排班系統</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     body {
       font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
@@ -19,7 +21,7 @@
     }
     .control-panel {
       display: flex;
-      gap: 15px;
+      gap: 12px;
       align-items: center;
       margin-bottom: 15px;
       flex-wrap: wrap;
@@ -28,13 +30,15 @@
       background-color: #007bff;
       color: white;
       border: none;
-      padding: 10px 18px;
+      padding: 10px 16px;
       border-radius: 4px;
       cursor: pointer;
       font-size: 15px;
       font-weight: bold;
     }
     button:hover { background-color: #0056b3; }
+    .btn-png { background-color: #20c997; }
+    .btn-png:hover { background-color: #1aa179; }
     .btn-pdf { background-color: #17a2b8; }
     .btn-pdf:hover { background-color: #138496; }
     .btn-add { background-color: #28a745; }
@@ -95,17 +99,16 @@
 
   <h1>🗓️ 聚會服務人員自動排班系統</h1>
 
-  <!-- 控制列 -->
   <div class="card no-print">
     <div class="control-panel">
       <label for="monthSelect"><b>選擇排班月份：</b></label>
       <input type="month" id="monthSelect" value="2026-08">
       <button onclick="generateSchedule()">🎲 重新編排 / 生成排班表</button>
+      <button class="btn-png" onclick="exportToPNG()">🖼️ 匯出 PNG 圖片</button>
       <button class="btn-pdf" onclick="exportToPDF()">📄 匯出 PDF / 列印</button>
     </div>
   </div>
 
-  <!-- 請假登記區塊 -->
   <div class="card no-print">
     <h2>📝 如有預知不在的日期可以先登記，利於當天工作調度</h2>
     <table class="leave-table" id="leaveTable">
@@ -119,15 +122,13 @@
         </tr>
       </thead>
       <tbody id="leaveTbody">
-        <!-- 動態請假列 -->
-      </tbody>
+        </tbody>
     </table>
     <br>
     <button class="btn-add" onclick="addLeaveRow()">➕ 新增請假登記欄</button>
   </div>
 
-  <!-- 排班結果 -->
-  <div class="card print-area">
+  <div class="card print-area" id="exportArea">
     <div class="table-header-info">
       <h2 id="scheduleTitle">2026-08月 各部門服務分配表</h2>
       <div class="created-date" id="createdDateDisplay">製造日期：YYYYMMDD</div>
@@ -146,8 +147,7 @@
         </tr>
       </thead>
       <tbody>
-        <!-- 動態產生 -->
-      </tbody>
+        </tbody>
     </table>
   </div>
 
@@ -243,7 +243,7 @@ function shuffle(array) {
 function pickAVMainPair(assignedThisPeriod, absentSet) {
   const validPairs = [];
 
-  // (1) 檢查夫妻組合（洪承緯+洪書念 或 吳和融+吳閔媛）
+  // (1) 檢查夫妻組合
   const couples = [
     ["洪承緯", "洪書念"],
     ["吳和融", "吳閔媛"]
@@ -255,20 +255,17 @@ function pickAVMainPair(assignedThisPeriod, absentSet) {
     }
   });
 
-  // (2) 其餘組合：電腦為弟兄，音響優先指派「許郁娸」或「祝暉晴」（非夫妻之姊妹）
+  // (2) 其餘組合：電腦為弟兄，音響優先指派「許郁娸」或「祝暉晴」
   const availMen = avCompMen.filter(m => !assignedThisPeriod.has(m) && !absentSet.has(m));
   availMen.forEach(man => {
-    // 若該弟兄為夫妻檔且妻子未請假，則保留給夫妻檔優先
     if (man === "洪承緯" && !assignedThisPeriod.has("洪書念") && !absentSet.has("洪書念")) return;
     if (man === "吳和融" && !assignedThisPeriod.has("吳閔媛") && !absentSet.has("吳閔媛")) return;
 
-    // 音響可配對一般姊妹
     const freeSisters = ["許郁娸", "祝暉晴"].filter(s => !assignedThisPeriod.has(s) && !absentSet.has(s));
     freeSisters.forEach(sis => {
       validPairs.push([man, sis]);
     });
 
-    // 若姊妹皆已排定，允許純男男正職搭檔
     const otherMen = availMen.filter(m2 => m2 !== man);
     otherMen.forEach(m2 => {
       validPairs.push([man, m2]);
@@ -289,12 +286,11 @@ function pickAVMainPair(assignedThisPeriod, absentSet) {
   assignedThisPeriod.add(selected[1]);
   serviceCounts[selected[0]] = (serviceCounts[selected[0]] || 0) + 1;
   serviceCounts[selected[1]] = (serviceCounts[selected[1]] || 0) + 1;
-  return selected; // [電腦正職, 音響正職]
+  return selected;
 }
 
-// 2. 影音部 支援挑選（🌟 電腦支援 與 音響支援 均以弟兄為主）
+// 2. 影音部 支援挑選（支援皆以弟兄為主）
 function pickAVSupportPair(assignedThisPeriod, absentSet) {
-  // 優先從影音部可用弟兄中挑選
   let availMen = avCompMen.filter(m => !assignedThisPeriod.has(m) && !absentSet.has(m));
   availMen = shuffle(availMen);
   availMen.sort((a, b) => (serviceCounts[a] || 0) - (serviceCounts[b] || 0));
@@ -307,11 +303,9 @@ function pickAVSupportPair(assignedThisPeriod, absentSet) {
     audioSupport = availMen[1];
   } else if (availMen.length === 1) {
     compSupport = availMen[0];
-    // 備用：若弟兄不足，音響支援退回姊妹
     const freeSisters = avSisters.filter(s => !assignedThisPeriod.has(s) && !absentSet.has(s));
     audioSupport = freeSisters.length > 0 ? freeSisters[0] : "人力不足";
   } else {
-    // 備用退路
     compSupport = "人力不足";
     audioSupport = "人力不足";
   }
@@ -328,7 +322,7 @@ function pickAVSupportPair(assignedThisPeriod, absentSet) {
   return [compSupport, audioSupport];
 }
 
-// 通用單人指派（防止同人自己支援自己）
+// 通用單人指派（防自我支援）
 function pickPerson(candidates, assignedThisPeriod, absentSet, localAssigned = new Set()) {
   let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p) && !localAssigned.has(p));
   
@@ -354,29 +348,29 @@ function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
   const assigned = new Set();
   const absentSet = getAbsentListForPeriod(startDateStr, endDateStr);
 
-  // 1. 影音部 正職 (電腦為弟兄，音響為配偶或姊妹)
+  // 1. 影音正職
   const [computerMain, audioMain] = pickAVMainPair(assigned, absentSet);
 
-  // 2. 影音部 支援 (電腦支援 & 音響支援 皆為弟兄)
+  // 2. 影音支援（弟兄優先）
   const [computerSupport, audioSupport] = pickAVSupportPair(assigned, absentSet);
 
-  // 3. 第一位到聚會所開門 (2位不同人)
+  // 3. 第一位開門
   const openLocal = new Set();
   const open1 = pickPerson(staffPool.openDoor, assigned, absentSet, openLocal);
   const open2 = pickPerson(staffPool.openDoor, assigned, absentSet, openLocal);
 
-  // 4. 招待員-開門 (3位不同人)
+  // 4. 招待開門
   const gDoorLocal = new Set();
   const gDoorMain = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
   const gDoorSupport1 = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
   const gDoorSupport2 = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
 
-  // 5. 招待員-點人數 (正職與支援互斥)
+  // 5. 招待點人數
   const gCountLocal = new Set();
   const gCountMain = pickPerson(staffPool.greeterCount, assigned, absentSet, gCountLocal);
   const gCountSupport = pickPerson(staffPool.greeterCount, assigned, absentSet, gCountLocal);
 
-  // 6. 講台服務 (正職與支援互斥)
+  // 6. 講台服務
   const stageLocal = new Set();
   const stageMain = pickPerson(staffPool.stageService, assigned, absentSet, stageLocal);
   const stageSupport = pickPerson(staffPool.stageService, assigned, absentSet, stageLocal);
@@ -411,11 +405,11 @@ function generateSchedule() {
   document.getElementById("createdDateDisplay").innerText = `製造日期：${getTodayString()}`;
 
   const m = parseInt(month);
-  const period1Name = `${m}月1-15日`;
+  const period1Name = `${m}月1-16日`;
   const period2Name = `${m}月16-31日`;
 
   const p1Start = `${year}-${month}-01`;
-  const p1End = `${year}-${month}-15`;
+  const p1End = `${year}-${month}-16`;
   const p2Start = `${year}-${month}-16`;
   const p2End = `${year}-${month}-31`;
 
@@ -425,6 +419,23 @@ function generateSchedule() {
     generatePeriodSchedule(period2Name, p2Start, p2End);
 }
 
+// 匯出 PNG 圖片
+function exportToPNG() {
+  const target = document.getElementById("exportArea");
+  const monthVal = document.getElementById("monthSelect").value;
+  
+  html2canvas(target, {
+    backgroundColor: "#ffffff",
+    scale: 2 // 提升截圖清晰度
+  }).then(canvas => {
+    const link = document.createElement("a");
+    link.download = `${monthVal}月_各部門服務分配表.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
+}
+
+// 匯出 PDF
 function exportToPDF() {
   window.print();
 }
