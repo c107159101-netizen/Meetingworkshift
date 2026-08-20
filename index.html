@@ -1,4 +1,3 @@
-HTML
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -7,16 +6,19 @@ HTML
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     body {
-      font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+      font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
       margin: 20px;
-      background-color: #f4f7f6;
+      background-color: #f0f2f5;
+      color: #333;
     }
     h1, h2 { color: #2c3e50; }
+    
+    /* 操作介面樣式 - 圖片中不會顯示 */
     .card {
       background: white;
       padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
       margin-bottom: 20px;
     }
     .control-panel {
@@ -30,81 +32,146 @@ HTML
       background-color: #007bff;
       color: white;
       border: none;
-      padding: 10px 16px;
-      border-radius: 4px;
+      padding: 10px 20px;
+      border-radius: 6px;
       cursor: pointer;
       font-size: 15px;
       font-weight: bold;
+      transition: background-color 0.2s;
     }
     button:hover { background-color: #0056b3; }
-    .btn-png { background-color: #20c997; }
-    .btn-png:hover { background-color: #1aa179; }
+    .btn-png { background-color: #28a745; }
+    .btn-png:hover { background-color: #218838; }
     .btn-pdf { background-color: #17a2b8; }
     .btn-pdf:hover { background-color: #138496; }
-    .btn-add { background-color: #28a745; }
-    .btn-add:hover { background-color: #218838; }
-    .btn-danger { background-color: #dc3545; padding: 4px 8px; font-size: 12px; }
+    .btn-add { background-color: #6c757d; }
+    .btn-add:hover { background-color: #5a6268; }
+    .btn-danger { background-color: #dc3545; padding: 4px 8px; font-size: 12px; border-radius: 4px;}
     .btn-danger:hover { background-color: #c82333; }
-    
-    .table-header-info {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      margin-bottom: 10px;
-    }
-    .table-header-info h2 { margin: 0; }
-    .created-date {
-      font-weight: bold;
+
+    /* =========================================
+       🖼️ 公告班表圖片專用樣式 ( print-area )
+       目標：簡約、好閱讀、符合 4:3
+       ========================================= */
+    #exportArea {
+      position: relative;
+      background: white;
       color: #333;
-      font-size: 0.95em;
+      overflow: hidden; /* 確保內容不超出 */
+      
+      /* 強制 4:3 比例 (例如 1200x900) */
+      width: 1200px;
+      height: 900px;
+      
+      /* 內容居中排版 */
+      display: flex;
+      flex-direction: column;
+      padding: 60px; /* 增大留白 */
+      box-sizing: border-box;
+      border: 1px solid #eee; /* 用於網頁預覽時標示邊界 */
+      margin: 0 auto; /* 網頁預覽時居中 */
     }
 
-    table {
+    .table-header-info {
+      text-align: center;
+      margin-bottom: 50px;
+      border-bottom: 2px solid #eaeaea;
+      padding-bottom: 20px;
+    }
+    .table-header-info h2 { 
+      margin: 0; 
+      font-size: 42px; /* 標題加大 */
+      color: #1a1a1a;
+      letter-spacing: 2px;
+    }
+    .created-date {
+      display: block;
+      margin-top: 15px;
+      color: #888;
+      font-size: 16px;
+      font-weight: normal;
+    }
+
+    /* 圖片專用表格樣式：無框線、大字體、大間距 */
+    #resultTable {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
-      background: white;
+      font-size: 20px; /* 整體字體放大 */
+      table-layout: fixed; /* 固定列寬以平分空間 */
     }
-    th, td {
-      border: 1px solid #dee2e6;
-      padding: 10px;
+    #resultTable th, #resultTable td {
+      border: none; /* 移除邊框 */
+      padding: 30px 15px; /* 顯著增大內距 */
       text-align: center;
+      vertical-align: middle;
+      word-wrap: break-word;
     }
-    th {
-      background-color: #3b82f6;
-      color: white;
-    }
-    .leave-table th {
-      background-color: #6c757d;
-    }
-    .support-tag {
+    
+    /* 表頭：淺色背景、分隔線 */
+    #resultTable thead th {
+      background-color: #f8faff; /* 淡藍雅致背景 */
       color: #555;
-      font-size: 0.9em;
-    }
-    select, input[type="date"], input[type="month"] {
-      padding: 6px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      font-weight: bold;
+      font-size: 18px;
+      border-bottom: 2px solid #dee2e6;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
+    /* 內容行：橫向底線分隔 */
+    #resultTable tbody tr td {
+      border-bottom: 1px solid #eaeaea;
+      line-height: 1.6; /* 增大行高 */
+    }
+    #resultTable tbody tr:last-child td {
+      border-bottom: none; /* 最後一行無底線 */
+    }
+    
+    /* 服務期間列：加粗 */
+    #resultTable td:first-child b {
+      font-size: 24px;
+      color: #007bff;
+    }
+
+    /* 支援人員樣式：淡化、縮小 */
+    .support-tag {
+      color: #999;
+      font-size: 16px;
+      display: block; /* 換行顯示 */
+      margin-top: 5px;
+    }
+
+    /* 用於網頁預覽時隱藏匯出區域的滾動條 */
+    .print-area-wrapper {
+      width: 100%;
+      overflow-x: auto; 
+      padding-bottom: 20px;
+    }
+
+    /* 列印與請假區塊樣式 */
+    .leave-table th { background-color: #6c757d; color: white;}
+    
     @media print {
       body { background-color: white; margin: 0; }
       .no-print, .card:not(.print-area) { display: none !important; }
-      .card.print-area { box-shadow: none; padding: 0; }
-      th { background-color: #3b82f6 !important; color: white !important; -webkit-print-color-adjust: exact; }
+      #exportArea { 
+        width: 100%; height: auto; border: none; padding: 20px; box-shadow: none; 
+        transform: scale(1); /* 確保列印時不縮放 */
+      }
+      #resultTable thead th { background-color: #f8faff !important; -webkit-print-color-adjust: exact; }
     }
   </style>
 </head>
 <body>
 
-  <h1>🗓️ 聚會服務人員自動排班系統</h1>
+  <h1 class="no-print">🗓️ 聚會服務人員自動排班系統</h1>
 
   <div class="card no-print">
     <div class="control-panel">
       <label for="monthSelect"><b>選擇排班月份：</b></label>
       <input type="month" id="monthSelect" value="2026-08">
       <button onclick="generateSchedule()">🎲 重新編排 / 生成排班表</button>
-      <button class="btn-png" onclick="exportToPNG()">🖼️ 匯出 PNG 圖片</button>
+      <button class="btn-png" onclick="exportToPNG()">🖼️ 匯出公告用 PNG (4:3)</button>
       <button class="btn-pdf" onclick="exportToPDF()">📄 匯出 PDF / 列印</button>
     </div>
   </div>
@@ -128,51 +195,42 @@ HTML
     <button class="btn-add" onclick="addLeaveRow()">➕ 新增請假登記欄</button>
   </div>
 
-  <div class="card print-area" id="exportArea">
-    <div class="table-header-info">
-      <h2 id="scheduleTitle">2026-08月 各部門服務分配表</h2>
-      <div class="created-date" id="createdDateDisplay">製造日期：YYYYMMDD</div>
+  <div class="print-area-wrapper">
+    <div class="print-area" id="exportArea">
+      <div class="table-header-info">
+        <h2 id="scheduleTitle">2026-08月 各部門服務分配表</h2>
+        <span class="created-date" id="createdDateDisplay">製造日期：YYYYMMDD</span>
+      </div>
+      
+      <table id="resultTable">
+        <thead>
+          <tr>
+            <th style="width: 15%;">服務期間</th>
+            <th>開門人員</th>
+            <th>影音部 (電腦)</th>
+            <th>影音部 (音響)</th>
+            <th>招待員 (門口)</th>
+            <th>招待員 (人數)</th>
+            <th>講台服務</th>
+          </tr>
+        </thead>
+        <tbody>
+          </tbody>
+      </table>
     </div>
-    
-    <table id="resultTable">
-      <thead>
-        <tr>
-          <th>服務期間</th>
-          <th>第一位到聚會所開門</th>
-          <th>影音部 (電腦)</th>
-          <th>影音部 (音響、麥克風)</th>
-          <th>招待員 (監視器/開門)</th>
-          <th>招待員 (開始招待/點人數)</th>
-          <th>講台服務</th>
-        </tr>
-      </thead>
-      <tbody>
-        </tbody>
-    </table>
   </div>
 
 <script>
-// 所有人員名單
+// 1. 所有人員名單與分類 (維持原有邏輯)
 const allStaffNames = [
   "洪承緯", "呂喬瑋", "吳和融", "劉奕呈", 
   "許郁娸", "祝暉晴", "洪書念", "吳閔媛",
   "賴良昭", "陳建台", "高睿理", "林金文", 
   "幸秉憲", "吳金發", "呂正金"
 ];
-
-// 影音部分類名單
 const avCompMen = ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈"];
 const avSisters = ["許郁娸", "祝暉晴", "洪書念", "吳閔媛"];
-
-// 夫妻嚴格綁定對照
-const spouseMap = {
-  "洪承緯": "洪書念",
-  "洪書念": "洪承緯",
-  "吳和融": "吳閔媛",
-  "吳閔媛": "吳和融"
-};
-
-// 各崗位可用人員名冊
+const spouseMap = { "洪承緯": "洪書念", "洪書念": "洪承緯", "吳和融": "吳閔媛", "吳閔媛": "吳和融" };
 const staffPool = {
   openDoor: ["賴良昭", "洪承緯", "劉奕呈", "陳建台"],
   greeterDoor: ["高睿理", "林金文", "幸秉憲", "陳建台", "賴良昭"],
@@ -182,39 +240,28 @@ const staffPool = {
 
 let serviceCounts = {};
 
+// 介面交互 (維持原有)
 function addLeaveRow(defaultName = "", defaultDate = "") {
   const tbody = document.getElementById("leaveTbody");
   const tr = document.createElement("tr");
-
   let optionsHtml = '<option value="">-- 請選擇人員 --</option>';
   allStaffNames.forEach(name => {
     const selected = name === defaultName ? 'selected' : '';
     optionsHtml += `<option value="${name}" ${selected}>${name}</option>`;
   });
-
-  tr.innerHTML = `
-    <td><select class="leave-name">${optionsHtml}</select></td>
-    <td><input type="date" class="leave-date" value="${defaultDate}"></td>
-    <td><input type="date" class="leave-date"></td>
-    <td><input type="date" class="leave-date"></td>
-    <td><button class="btn-danger" onclick="this.closest('tr').remove()">刪除</button></td>
-  `;
+  tr.innerHTML = `<td><select class="leave-name">${optionsHtml}</select></td><td><input type="date" class="leave-date" value="${defaultDate}"></td><td><input type="date" class="leave-date"></td><td><input type="date" class="leave-date"></td><td><button class="btn-danger" onclick="this.closest('tr').remove()">刪除</button></td>`;
   tbody.appendChild(tr);
 }
 
 function getAbsentListForPeriod(startDateStr, endDateStr) {
   const absentSet = new Set();
   const rows = document.querySelectorAll("#leaveTbody tr");
-  
   const start = new Date(startDateStr);
   const end = new Date(endDateStr);
-
   rows.forEach(row => {
     const name = row.querySelector(".leave-name").value;
     if (!name) return;
-
-    const dateInputs = row.querySelectorAll(".leave-date");
-    dateInputs.forEach(input => {
+    row.querySelectorAll(".leave-date").forEach(input => {
       if (input.value) {
         const leaveDate = new Date(input.value);
         if (leaveDate >= start && leaveDate <= end) {
@@ -224,224 +271,148 @@ function getAbsentListForPeriod(startDateStr, endDateStr) {
       }
     });
   });
-
   return absentSet;
 }
 
-function initCounts() {
-  serviceCounts = {};
-  allStaffNames.forEach(name => {
-    serviceCounts[name] = 0;
-  });
-}
+function initCounts() { serviceCounts = {}; allStaffNames.forEach(name => { serviceCounts[name] = 0; }); }
+function shuffle(array) { return [...array].sort(() => Math.random() - 0.5); }
 
-function shuffle(array) {
-  return [...array].sort(() => Math.random() - 0.5);
-}
-
-// 1. 影音部 正職挑選（電腦必為弟兄，音響符合夫妻或姊妹）
+// 排班核心邏輯 (維持原有嚴格約束)
 function pickAVMainPair(assignedThisPeriod, absentSet) {
   const validPairs = [];
-
-  // (1) 檢查夫妻組合
-  const couples = [
-    ["洪承緯", "洪書念"],
-    ["吳和融", "吳閔媛"]
-  ];
-  couples.forEach(([husband, wife]) => {
-    if (!assignedThisPeriod.has(husband) && !assignedThisPeriod.has(wife) &&
-        !absentSet.has(husband) && !absentSet.has(wife)) {
+  [["洪承緯", "洪書念"], ["吳和融", "吳閔媛"]].forEach(([husband, wife]) => {
+    if (!assignedThisPeriod.has(husband) && !assignedThisPeriod.has(wife) && !absentSet.has(husband) && !absentSet.has(wife)) {
       validPairs.push([husband, wife]);
     }
   });
-
-  // (2) 其餘組合：電腦為弟兄，音響優先指派「許郁娸」或「祝暉晴」
   const availMen = avCompMen.filter(m => !assignedThisPeriod.has(m) && !absentSet.has(m));
   availMen.forEach(man => {
     if (man === "洪承緯" && !assignedThisPeriod.has("洪書念") && !absentSet.has("洪書念")) return;
     if (man === "吳和融" && !assignedThisPeriod.has("吳閔媛") && !absentSet.has("吳閔媛")) return;
-
-    const freeSisters = ["許郁娸", "祝暉晴"].filter(s => !assignedThisPeriod.has(s) && !absentSet.has(s));
-    freeSisters.forEach(sis => {
-      validPairs.push([man, sis]);
-    });
-
-    const otherMen = availMen.filter(m2 => m2 !== man);
-    otherMen.forEach(m2 => {
-      validPairs.push([man, m2]);
-    });
+    ["許郁娸", "祝暉晴"].filter(s => !assignedThisPeriod.has(s) && !absentSet.has(s)).forEach(sis => { validPairs.push([man, sis]); });
+    availMen.filter(m2 => m2 !== man).forEach(m2 => { validPairs.push([man, m2]); });
   });
-
-  if (validPairs.length === 0) return ["無合格人選", "無合格人選"];
-
-  const shuffledPairs = shuffle(validPairs);
-  shuffledPairs.sort((pairA, pairB) => {
-    const scoreA = (serviceCounts[pairA[0]] || 0) + (serviceCounts[pairA[1]] || 0);
-    const scoreB = (serviceCounts[pairB[0]] || 0) + (serviceCounts[pairB[1]] || 0);
-    return scoreA - scoreB;
-  });
-
-  const selected = shuffledPairs[0];
-  assignedThisPeriod.add(selected[0]);
-  assignedThisPeriod.add(selected[1]);
-  serviceCounts[selected[0]] = (serviceCounts[selected[0]] || 0) + 1;
-  serviceCounts[selected[1]] = (serviceCounts[selected[1]] || 0) + 1;
+  if (validPairs.length === 0) return ["人力不足", "人力不足"];
+  const selected = shuffle(validPairs).sort((a, b) => ((serviceCounts[a[0]]||0)+(serviceCounts[a[1]]||0)) - ((serviceCounts[b[0]]||0)+(serviceCounts[b[1]]||0)))[0];
+  assignedThisPeriod.add(selected[0]); assignedThisPeriod.add(selected[1]);
+  serviceCounts[selected[0]] = (serviceCounts[selected[0]]||0)+1; serviceCounts[selected[1]] = (serviceCounts[selected[1]]||0)+1;
   return selected;
 }
 
-// 2. 影音部 支援挑選（支援皆以弟兄為主）
 function pickAVSupportPair(assignedThisPeriod, absentSet) {
-  let availMen = avCompMen.filter(m => !assignedThisPeriod.has(m) && !absentSet.has(m));
-  availMen = shuffle(availMen);
-  availMen.sort((a, b) => (serviceCounts[a] || 0) - (serviceCounts[b] || 0));
-
-  let compSupport = "";
-  let audioSupport = "";
-
-  if (availMen.length >= 2) {
-    compSupport = availMen[0];
-    audioSupport = availMen[1];
-  } else if (availMen.length === 1) {
-    compSupport = availMen[0];
-    const freeSisters = avSisters.filter(s => !assignedThisPeriod.has(s) && !absentSet.has(s));
-    audioSupport = freeSisters.length > 0 ? freeSisters[0] : "人力不足";
-  } else {
-    compSupport = "人力不足";
-    audioSupport = "人力不足";
-  }
-
-  if (compSupport !== "人力不足") {
-    assignedThisPeriod.add(compSupport);
-    serviceCounts[compSupport] = (serviceCounts[compSupport] || 0) + 1;
-  }
-  if (audioSupport !== "人力不足") {
-    assignedThisPeriod.add(audioSupport);
-    serviceCounts[audioSupport] = (serviceCounts[audioSupport] || 0) + 1;
-  }
-
-  return [compSupport, audioSupport];
+  let availMen = shuffle(avCompMen.filter(m => !assignedThisPeriod.has(m) && !absentSet.has(m))).sort((a, b) => (serviceCounts[a]||0) - (serviceCounts[b]||0));
+  let cSup = "人力不足", aSup = "人力不足";
+  if (availMen.length >= 2) { cSup = availMen[0]; aSup = availMen[1]; }
+  else if (availMen.length === 1) { cSup = availMen[0]; const freeSis = avSisters.filter(s => !assignedThisPeriod.has(s) && !absentSet.has(s)); if(freeSis.length > 0) aSup = freeSis[0]; }
+  if (cSup !== "人力不足") { assignedThisPeriod.add(cSup); serviceCounts[cSup] = (serviceCounts[cSup]||0)+1; }
+  if (aSup !== "人力不足") { assignedThisPeriod.add(aSup); serviceCounts[aSup] = (serviceCounts[aSup]||0)+1; }
+  return [cSup, aSup];
 }
 
-// 通用單人指派（防自我支援）
 function pickPerson(candidates, assignedThisPeriod, absentSet, localAssigned = new Set()) {
-  let available = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p) && !localAssigned.has(p));
-  
-  if (available.length === 0) {
-    available = candidates.filter(p => !absentSet.has(p) && !localAssigned.has(p));
-  }
-
-  if (available.length === 0) {
-    return "無可用人選";
-  }
-
-  available = shuffle(available);
-  available.sort((a, b) => (serviceCounts[a] || 0) - (serviceCounts[b] || 0));
-
-  const picked = available[0];
-  assignedThisPeriod.add(picked);
-  localAssigned.add(picked);
-  serviceCounts[picked] = (serviceCounts[picked] || 0) + 1;
+  let avail = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p) && !localAssigned.has(p));
+  if (avail.length === 0) { avail = candidates.filter(p => !absentSet.has(p) && !localAssigned.has(p)); }
+  if (avail.length === 0) return "人力不足";
+  const picked = shuffle(avail).sort((a, b) => (serviceCounts[a]||0) - (serviceCounts[b]||0))[0];
+  assignedThisPeriod.add(picked); localAssigned.add(picked); serviceCounts[picked] = (serviceCounts[picked]||0)+1;
   return picked;
 }
 
+// 生成排班結果並渲染表格
 function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
   const assigned = new Set();
   const absentSet = getAbsentListForPeriod(startDateStr, endDateStr);
 
-  // 1. 影音正職
   const [computerMain, audioMain] = pickAVMainPair(assigned, absentSet);
-
-  // 2. 影音支援（弟兄優先）
   const [computerSupport, audioSupport] = pickAVSupportPair(assigned, absentSet);
 
-  // 3. 第一位開門
   const openLocal = new Set();
   const open1 = pickPerson(staffPool.openDoor, assigned, absentSet, openLocal);
   const open2 = pickPerson(staffPool.openDoor, assigned, absentSet, openLocal);
 
-  // 4. 招待開門
   const gDoorLocal = new Set();
   const gDoorMain = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
   const gDoorSupport1 = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
   const gDoorSupport2 = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
 
-  // 5. 招待點人數
   const gCountLocal = new Set();
   const gCountMain = pickPerson(staffPool.greeterCount, assigned, absentSet, gCountLocal);
   const gCountSupport = pickPerson(staffPool.greeterCount, assigned, absentSet, gCountLocal);
 
-  // 6. 講台服務
   const stageLocal = new Set();
   const stageMain = pickPerson(staffPool.stageService, assigned, absentSet, stageLocal);
   const stageSupport = pickPerson(staffPool.stageService, assigned, absentSet, stageLocal);
 
-  return `
-    <tr>
-      <td><b>${periodName}</b></td>
-      <td>${open1}<br>${open2}</td>
-      <td>${computerMain}<br><span class="support-tag">${computerSupport} (支援)</span></td>
-      <td>${audioMain}<br><span class="support-tag">${audioSupport} (支援)</span></td>
-      <td>${gDoorMain}<br><span class="support-tag">${gDoorSupport1} (支援)</span><br><span class="support-tag">${gDoorSupport2} (支援)</span></td>
-      <td>${gCountMain}<br><span class="support-tag">${gCountSupport} (支援)</span></td>
-      <td>${stageMain}<br><span class="support-tag">${stageSupport} (支援)</span></td>
-    </tr>
-  `;
+  // 渲染為公告用簡約排版 (支援人員換行、變小)
+  return `<tr>
+    <td><b>${periodName}</b></td>
+    <td>${open1}<br>${open2}</td>
+    <td>${computerMain}<span class="support-tag">${computerSupport} (支)</span></td>
+    <td>${audioMain}<span class="support-tag">${audioSupport} (支)</span></td>
+    <td>${gDoorMain}<span class="support-tag">${gDoorSupport1}, ${gDoorSupport2} (支)</span></td>
+    <td>${gCountMain}<span class="support-tag">${gCountSupport} (支)</span></td>
+    <td>${stageMain}<span class="support-tag">${stageSupport} (支)</span></td>
+  </tr>`;
 }
 
 function getTodayString() {
   const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  return `${yyyy}${mm}${dd}`;
+  return `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
 }
 
+// 主生成函數
 function generateSchedule() {
   initCounts();
   const monthVal = document.getElementById("monthSelect").value;
+  if(!monthVal) return;
   const [year, month] = monthVal.split("-");
   
-  document.getElementById("scheduleTitle").innerText = `${year}-${month}月 各部門服務分配表`;
-  document.getElementById("createdDateDisplay").innerText = `製造日期：${getTodayString()}`;
+  // 更新圖片內的標題與日期
+  document.getElementById("scheduleTitle").innerText = `${parseInt(month)}月 部門服務分配表`;
+  document.getElementById("createdDateDisplay").innerText = `發佈日期：${getTodayString()}`;
 
-  const m = parseInt(month);
-  const period1Name = `${m}月1-15日`;
-  const period2Name = `${m}月16-31日`;
-
-  const p1Start = `${year}-${month}-01`;
-  const p1End = `${year}-${month}-15`;
-  const p2Start = `${year}-${month}-16`;
-  const p2End = `${year}-${month}-31`;
-
+  const lastDay = new Date(year, month, 0).getDate(); // 計算該月最後一天
   const tbody = document.querySelector("#resultTable tbody");
   tbody.innerHTML = 
-    generatePeriodSchedule(period1Name, p1Start, p1End) + 
-    generatePeriodSchedule(period2Name, p2Start, p2End);
+    generatePeriodSchedule(`${parseInt(month)}月1-15日`, `${year}-${month}-01`, `${year}-${month}-15`) + 
+    generatePeriodSchedule(`${parseInt(month)}月16-${lastDay}日`, `${year}-${month}-16`, `${year}-${month}-${lastDay}`);
 }
 
-// 匯出 PNG 圖片
+// 🖼️ 匯出公告用 PNG 圖片 (嚴格符合 4:3 比例與公告排版)
 function exportToPNG() {
   const target = document.getElementById("exportArea");
   const monthVal = document.getElementById("monthSelect").value;
   
+  // 顯示加載中提示 (選擇性)
+  const btn = document.querySelector('.btn-png');
+  const originalText = btn.innerText;
+  btn.innerText = "正在產出圖片...";
+  btn.disabled = true;
+
   html2canvas(target, {
     backgroundColor: "#ffffff",
-    scale: 2 // 提升截圖清晰度
+    scale: 2, // 提升清晰度
+    useCORS: true, // 允許跨域圖片 (如有)
+    width: 1200, // 強制擷取寬度
+    height: 900  // 強制擷取高度
   }).then(canvas => {
     const link = document.createElement("a");
-    link.download = `${monthVal}月_各部門服務分配表.png`;
+    link.download = `${monthVal}_公告班表.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
+    
+    // 恢復按鈕狀態
+    btn.innerText = originalText;
+    btn.disabled = false;
   });
 }
 
-// 匯出 PDF
-function exportToPDF() {
-  window.print();
-}
+// 📄 匯出 PDF / 列印
+function exportToPDF() { window.print(); }
 
+// 初始載入
 window.onload = function() {
-  addLeaveRow("洪承緯", "2026-08-05");
+  addLeaveRow("洪承緯", "2026-08-05"); // 預設請假範例
   generateSchedule();
 };
 </script>
