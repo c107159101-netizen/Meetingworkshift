@@ -2,418 +2,670 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>各部門服務自動輪調排班系統</title>
+  <title>王國聚會所清潔工作安排與檢核管理系統</title>
+  <!-- 引入 html2canvas 用於產出 PNG -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- 引入 FontAwesome 圖示庫 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body {
-      font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
-      margin: 20px;
-      background-color: #f0f2f5;
-      color: #333;
+    :root {
+      --primary: #1F4E78;
+      --primary-light: #2c6aa0;
+      --navy: #14324f;
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --text: #2c3e50;
+      --border: #dee2e6;
     }
-    h1, h2 { color: #2c3e50; }
-    
-    /* 操作介面樣式 - 圖片中不會顯示 */
-    .card {
-      background: white;
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+      margin: 0;
       padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    .container { max-width: 1400px; margin: 0 auto; }
+
+    /* 控制列與卡片 */
+    .card {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
       margin-bottom: 20px;
     }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      border-bottom: 2px solid #eaedf1;
+      padding-bottom: 15px;
+      margin-bottom: 15px;
+    }
+    .header-bar h1 { margin: 0; font-size: 24px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
+
     .control-panel {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       align-items: center;
-      margin-bottom: 15px;
       flex-wrap: wrap;
     }
+
+    /* 按鈕樣式 */
     button {
-      background-color: #007bff;
-      color: white;
       border: none;
-      padding: 10px 20px;
+      padding: 9px 15px;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: bold;
-      transition: background-color 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
     }
-    button:hover { background-color: #0056b3; }
-    .btn-png { background-color: #28a745; }
-    .btn-png:hover { background-color: #218838; }
-    .btn-pdf { background-color: #17a2b8; }
-    .btn-pdf:hover { background-color: #138496; }
-    .btn-add { background-color: #6c757d; }
-    .btn-add:hover { background-color: #5a6268; }
-    .btn-danger { background-color: #dc3545; padding: 4px 8px; font-size: 12px; border-radius: 4px;}
-    .btn-danger:hover { background-color: #c82333; }
+    .btn-primary { background-color: var(--primary); color: white; }
+    .btn-primary:hover { background-color: var(--primary-light); }
+    .btn-success { background-color: #28a745; color: white; }
+    .btn-success:hover { background-color: #218838; }
+    .btn-info { background-color: #17a2b8; color: white; }
+    .btn-info:hover { background-color: #138496; }
+    .btn-warning { background-color: #ffc107; color: #333; }
+    .btn-warning:hover { background-color: #e0a800; }
+    .btn-outline { background-color: transparent; border: 1px solid var(--border); color: #555; }
+    .btn-outline:hover { background-color: #e9ecef; }
+    .btn-danger-sm { background-color: #dc3545; color: white; padding: 4px 8px; font-size: 12px; }
 
-    /* =========================================
-       🖼️ 公告班表圖片專用樣式 ( print-area )
-       目標：簡約、好閱讀、符合 4:3
-       ========================================= */
-    #exportArea {
-      position: relative;
-      background: white;
-      color: #333;
-      overflow: hidden; /* 確保內容不超出 */
-      
-      /* 強制 4:3 比例 (例如 1200x900) */
+    select, input[type="month"] {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    /* 4:3 排版畫布輸出容器 */
+    .table-viewport {
+      width: 100%;
+      overflow-x: auto;
+      background: #e5e9f0;
+      padding: 20px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+    }
+
+    #exportCanvas {
       width: 1200px;
-      height: 900px;
-      
-      /* 內容居中排版 */
+      min-height: 900px;
+      background: white;
+      padding: 40px 50px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
       display: flex;
       flex-direction: column;
-      padding: 60px; /* 增大留白 */
-      box-sizing: border-box;
-      border: 1px solid #eee; /* 用於網頁預覽時標示邊界 */
-      margin: 0 auto; /* 網頁預覽時居中 */
+      justify-content: space-between;
     }
 
-    .table-header-info {
-      text-align: center;
-      margin-bottom: 50px;
-      border-bottom: 2px solid #eaeaea;
-      padding-bottom: 20px;
+    .export-header {
+      border-bottom: 3px solid var(--primary);
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
     }
-    .table-header-info h2 { 
-      margin: 0; 
-      font-size: 42px; /* 標題加大 */
-      color: #1a1a1a;
-      letter-spacing: 2px;
-    }
-    .created-date {
-      display: block;
-      margin-top: 15px;
-      color: #888;
-      font-size: 16px;
-      font-weight: normal;
-    }
+    .export-header h2 { margin: 0; font-size: 30px; color: var(--primary); letter-spacing: 1px; }
+    .export-subtitle { font-size: 15px; color: #495057; font-weight: bold; margin-top: 6px; }
+    .export-meta { text-align: right; font-size: 13px; color: #6c757d; }
 
-    /* 圖片專用表格樣式：無框線、大字體、大間距 */
-    #resultTable {
+    /* 清潔項目表格 */
+    table.cleaning-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 20px; /* 整體字體放大 */
-      table-layout: fixed; /* 固定列寬以平分空間 */
+      table-layout: fixed;
     }
-    #resultTable th, #resultTable td {
-      border: none; /* 移除邊框 */
-      padding: 30px 15px; /* 顯著增大內距 */
-      text-align: center;
-      vertical-align: middle;
+    table.cleaning-table th, table.cleaning-table td {
+      border: 1px solid #ced4da;
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 14px;
       word-wrap: break-word;
     }
-    
-    /* 表頭：淺色背景、分隔線 */
-    #resultTable thead th {
-      background-color: #f8faff; /* 淡藍雅致背景 */
-      color: #555;
+    table.cleaning-table th {
+      background-color: var(--primary);
+      color: white;
+      text-align: center;
+      font-weight: 600;
+      padding: 12px;
+    }
+    table.cleaning-table tbody tr:nth-child(even) { background-color: #f8fafc; }
+
+    .col-area { width: 25%; font-weight: bold; color: var(--navy); }
+    .col-desc { width: 33%; font-size: 13px; color: #4a5568; }
+    .col-tools { width: 24%; font-size: 13px; }
+    .col-staff { width: 18%; text-align: center; font-weight: bold; color: #1a365d; font-size: 15px; }
+
+    /* 抹布色彩徽章標籤 */
+    .badge-cloth {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
       font-weight: bold;
-      font-size: 18px;
-      border-bottom: 2px solid #dee2e6;
-      text-transform: uppercase;
-      letter-spacing: 1px;
+      margin-right: 4px;
+    }
+    .cloth-yellow { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    .cloth-green { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .cloth-red { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .cloth-white { background: #fdfdfe; color: #383d41; border: 1px solid #d6d8db; }
+
+    /* 大掃除加強欄 */
+    .section-divider {
+      background-color: #e2e8f0 !important;
+      font-weight: bold;
+      color: var(--primary);
+      text-align: center;
+      padding: 8px !important;
     }
 
-    /* 內容行：橫向底線分隔 */
-    #resultTable tbody tr td {
-      border-bottom: 1px solid #eaeaea;
-      line-height: 1.6; /* 增大行高 */
+    /* 彈窗樣式 (Modal) */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
     }
-    #resultTable tbody tr:last-child td {
-      border-bottom: none; /* 最後一行無底線 */
+    .modal-card {
+      background: white;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 800px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      padding: 25px;
     }
-    
-    /* 服務期間列：加粗 */
-    #resultTable td:first-child b {
-      font-size: 24px;
-      color: #007bff;
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 15px;
+    }
+    .modal-header h3 { margin: 0; color: var(--primary); }
+
+    /* 歷史快照清單 */
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      background: #fafbfc;
+      transition: all 0.2s;
+    }
+    .history-item:hover { background: #f0f4f8; border-color: var(--primary-light); }
+    .history-meta { display: flex; flex-direction: column; gap: 4px; }
+    .history-title { font-weight: bold; font-size: 15px; color: var(--navy); }
+    .history-time { font-size: 12px; color: #6c757d; }
+    .history-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      background: #e2e8f0;
+      color: #334155;
+      font-weight: bold;
     }
 
-    /* 支援人員樣式：淡化、縮小 */
-    .support-tag {
-      color: #999;
-      font-size: 16px;
-      display: block; /* 換行顯示 */
-      margin-top: 5px;
+    /* 自訂 Toast 通知 */
+    #toastBox {
+      position: fixed;
+      bottom: 25px;
+      right: 25px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast-msg {
+      background: #1e293b;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.3s ease forwards;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
 
-    /* 用於網頁預覽時隱藏匯出區域的滾動條 */
-    .print-area-wrapper {
-      width: 100%;
-      overflow-x: auto; 
-      padding-bottom: 20px;
-    }
-
-    /* 列印與請假區塊樣式 */
-    .leave-table th { background-color: #6c757d; color: white;}
-    
     @media print {
-      body { background-color: white; margin: 0; }
-      .no-print, .card:not(.print-area) { display: none !important; }
-      #exportArea { 
-        width: 100%; height: auto; border: none; padding: 20px; box-shadow: none; 
-        transform: scale(1); /* 確保列印時不縮放 */
-      }
-      #resultTable thead th { background-color: #f8faff !important; -webkit-print-color-adjust: exact; }
+      body { background: white; padding: 0; }
+      .no-print { display: none !important; }
+      .table-viewport { background: white; padding: 0; }
+      #exportCanvas { box-shadow: none; padding: 0; width: 100%; }
     }
   </style>
 </head>
 <body>
 
-  <h1 class="no-print">🗓️ 聚會服務人員自動排班系統</h1>
-
+<div class="container">
+  <!-- 控制與工具列 -->
   <div class="card no-print">
-    <div class="control-panel">
-      <label for="monthSelect"><b>選擇排班月份：</b></label>
-      <input type="month" id="monthSelect" value="2026-08">
-      <button onclick="generateSchedule()">🎲 重新編排 / 生成排班表</button>
-      <button class="btn-png" onclick="exportToPNG()">🖼️ 匯出公告用 PNG (4:3)</button>
-      <button class="btn-pdf" onclick="exportToPDF()">📄 匯出 PDF / 列印</button>
-    </div>
-  </div>
-
-  <div class="card no-print">
-    <h2>📝 如有預知不在的日期可以先登記，利於當天工作調度</h2>
-    <table class="leave-table" id="leaveTable">
-      <thead>
-        <tr>
-          <th style="width: 25%;">名字</th>
-          <th>請假日期 (1)</th>
-          <th>請假日期 (2)</th>
-          <th>請假日期 (3)</th>
-          <th style="width: 10%;">操作</th>
-        </tr>
-      </thead>
-      <tbody id="leaveTbody">
-        </tbody>
-    </table>
-    <br>
-    <button class="btn-add" onclick="addLeaveRow()">➕ 新增請假登記欄</button>
-  </div>
-
-  <div class="print-area-wrapper">
-    <div class="print-area" id="exportArea">
-      <div class="table-header-info">
-        <h2 id="scheduleTitle">2026-08月 各部門服務分配表</h2>
-        <span class="created-date" id="createdDateDisplay">製造日期：YYYYMMDD</span>
+    <div class="header-bar">
+      <h1><i class="fa-solid fa-broom"></i> 聚會所清潔工作安排系統</h1>
+      <div class="control-panel">
+        <button class="btn-warning" onclick="openHistoryModal()"><i class="fa-solid fa-clock-rotate-left"></i> 歷史紀錄與版本追蹤 (<span id="historyCount">0</span>)</button>
+        <button class="btn-outline" onclick="openGroupRosterModal()"><i class="fa-solid fa-users"></i> 檢視小組名冊</button>
       </div>
-      
-      <table id="resultTable">
-        <thead>
-          <tr>
-            <th style="width: 15%;">服務期間</th>
-            <th>開門人員</th>
-            <th>影音部 (電腦)</th>
-            <th>影音部 (音響)</th>
-            <th>招待員 (門口)</th>
-            <th>招待員 (人數)</th>
-            <th>講台服務</th>
-          </tr>
-        </thead>
-        <tbody>
-          </tbody>
-      </table>
+    </div>
+
+    <div class="control-panel">
+      <label><b>排班月份：</b></label>
+      <input type="month" id="scheduleMonth" value="2026-09" onchange="updateMonthDisplay()">
+
+      <label style="margin-left: 10px;"><b>當值輪值小組：</b></label>
+      <select id="groupSelectA" onchange="triggerGroupChange()">
+        <option value="A" selected>埔里 A小組</option>
+        <option value="B">埔里 B小組</option>
+        <option value="C">埔里 C小組</option>
+        <option value="D">埔里 D小組</option>
+      </select>
+      <span>＋</span>
+      <select id="groupSelectB" onchange="triggerGroupChange()">
+        <option value="A">埔里 A小組</option>
+        <option value="B" selected>埔里 B小組</option>
+        <option value="C">埔里 C小組</option>
+        <option value="D">埔里 D小組</option>
+      </select>
+
+      <button class="btn-primary" onclick="autoAssignTasks(true)"><i class="fa-solid fa-dice"></i> 🎲 依輪值小組自動派班</button>
+      <button class="btn-outline" onclick="createManualSnapshot()"><i class="fa-solid fa-bookmark"></i> 另存當前快照</button>
+      <button class="btn-success" onclick="exportToPNG()"><i class="fa-solid fa-image"></i> 匯出公告 PNG (4:3)</button>
+      <button class="btn-info" onclick="window.print()"><i class="fa-solid fa-print"></i> 列印 A4</button>
     </div>
   </div>
+
+  <!-- 排班預覽 / 4:3 公告截圖畫布 -->
+  <div class="table-viewport">
+    <div id="exportCanvas">
+      <div>
+        <div class="export-header">
+          <div>
+            <h2 id="bannerTitle">王國聚會所 清潔工作安排與檢核表</h2>
+            <div class="export-subtitle" id="bannerGroups">本月當值輪值小組：埔里 A小組 ＋ 埔里 B小組</div>
+          </div>
+          <div class="export-meta">
+            <div id="currentVersionDisplay" style="font-weight:bold; color:var(--primary);">當前版本：版本 1 (最新)</div>
+            <div id="bannerDate">發佈日期：20260902</div>
+          </div>
+        </div>
+
+        <table class="cleaning-table" id="mainScheduleTable">
+          <thead>
+            <tr>
+              <th style="width: 26%;">清潔區域細項</th>
+              <th style="width: 32%;">工作內容與標準指引</th>
+              <th style="width: 24%;">指定清潔用品與抹布指引</th>
+              <th style="width: 18%;">負責人員 (雙小組輪派)</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleTableBody">
+            <!-- 動態產生表格項目 -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 頁尾規範簡要指引 -->
+      <div style="margin-top: 25px; padding-top: 12px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b; display: flex; justify-content: space-between;">
+        <span>抹布顏色規範：<span class="badge-cloth cloth-yellow">黃布</span>講台/按鍵開關消毒 <span class="badge-cloth cloth-green">綠布</span>一般室內家具桌面 <span class="badge-cloth cloth-red">紅布</span>廁所專用 <span class="badge-cloth cloth-white">白布</span>玻璃鏡面</span>
+        <span>長老團與清潔協調人定期確認與維護</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 歷史紀錄與版本追蹤 Modal -->
+<div id="historyModal" class="modal-backdrop" style="display: none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-clock-rotate-left"></i> 歷史版本追蹤與載入</h3>
+      <button class="btn-outline" onclick="closeHistoryModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="margin-bottom: 15px; color:#64748b; font-size: 13px;">
+      系統會自動在每次自動派班或手動留存時建立快照，您可在此隨時比對或一鍵還原過往版本。
+    </div>
+    <div id="historyListContainer">
+      <!-- 動態載入歷史紀錄清單 -->
+    </div>
+    <div style="text-align: right; margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px;">
+      <button class="btn-danger-sm" onclick="clearAllHistory()"><i class="fa-solid fa-trash"></i> 清空所有歷史版本</button>
+    </div>
+  </div>
+</div>
+
+<!-- 4 小組名冊檢視 Modal -->
+<div id="groupRosterModal" class="modal-backdrop" style="display: none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-users"></i> 埔里會眾 4 個小組成員名冊</h3>
+      <button class="btn-outline" onclick="closeGroupRosterModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;" id="rosterDisplayArea">
+      <!-- 動態填入小組人員 -->
+    </div>
+  </div>
+</div>
+
+<div id="toastBox"></div>
 
 <script>
-// 1. 所有人員名單與分類 (維持原有邏輯)
-const allStaffNames = [
-  "洪承緯", "呂喬瑋", "吳和融", "劉奕呈", 
-  "許郁娸", "祝暉晴", "洪書念", "吳閔媛",
-  "賴良昭", "陳建台", "高睿理", "林金文", 
-  "幸秉憲", "吳金發", "呂正金"
-];
-const avCompMen = ["洪承緯", "呂喬瑋", "吳和融", "劉奕呈"];
-const avSisters = ["許郁娸", "祝暉晴", "洪書念", "吳閔媛"];
-const spouseMap = { "洪承緯": "洪書念", "洪書念": "洪承緯", "吳和融": "吳閔媛", "吳閔媛": "吳和融" };
-const staffPool = {
-  openDoor: ["賴良昭", "洪承緯", "劉奕呈", "陳建台"],
-  greeterDoor: ["高睿理", "林金文", "幸秉憲", "陳建台", "賴良昭"],
-  greeterCount: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"],
-  stageService: ["高睿理", "林金文", "幸秉憲", "吳金發", "陳建台", "呂正金", "賴良昭"]
+// 1. 會眾 4 個小組人員名冊定義
+const groupRoster = {
+  A: ["呂正金", "洪承緯", "王蘇韻", "王春秀", "吳欣烜", "林宜均", "洪蘊美", "廖敏潔", "潘彥伶", "呂天惠", "鄭淑惠"],
+  B: ["幸秉憲", "吳和融", "幸敏環", "許郁娸", "祝暉晴", "蔡麗月", "吳閔媛", "廖家誼"],
+  C: ["林金文", "賴良昭", "陳素琴", "賴雪瑛", "林保暻", "黃琪芳", "汪辰璘", "黃潔恩", "吳佩怡", "陳玉花"],
+  D: ["呂喬瑋", "紅正雄", "譚奕雯", "劉美玲", "黃玲瑜", "湯千敏", "柯沛玨", "陳文玲", "劉奕呈", "辛慧晴"]
 };
 
-let serviceCounts = {};
+// 2. 清潔任務範本 (常規與加強項目)
+const taskDefinitions = [
+  { id: "t1", area: "講台、講桌、椅子、麥克風架、講台地板", desc: "清潔、消毒（含講台上所有物品、按鍵、麥克風及周邊地面）", tool: "<span class='badge-cloth cloth-yellow'>黃布</span>快活萬用消毒劑(1:20)", count: 2 },
+  { id: "t2", area: "大廳地板", desc: "掃地或拖地，當次擇一即可，保持地面無毛髮碎屑", tool: "吸塵器 / 掃把 / 旋轉拖把", count: 3 },
+  { id: "t3", area: "大廳書櫃｜小房間地板、桌椅、櫃子、門框", desc: "全面擦拭灰塵（含書櫃、門框、桌椅、小房間）", tool: "<span class='badge-cloth cloth-green'>綠布</span>(室內專用)", count: 2 },
+  { id: "t4", area: "置物架區、置物架區旁窗戶", desc: "擦拭置物架表面、窗台灰塵與玻璃污漬", tool: "<span class='badge-cloth cloth-green'>綠布</span> / <span class='badge-cloth cloth-white'>白布</span>＋玻璃清潔劑", count: 1 },
+  { id: "t5", area: "電梯正面外牆、聚會所大門、電器箱蓋", desc: "擦拭指紋手印、門把及電梯外呼叫按鍵面板", tool: "<span class='badge-cloth cloth-yellow'>黃布</span>(開關門把) / <span class='badge-cloth cloth-green'>綠布</span>", count: 2 },
+  { id: "t6", area: "電梯內牆壁、鏡面與扶手", desc: "擦拭內部金屬壁面、鏡面去漬與安全扶手", tool: "<span class='badge-cloth cloth-green'>綠布</span> / 玻璃清潔劑", count: 1 },
+  { id: "t7", area: "五樓走廊、電梯地板、地毯", desc: "走廊掃拖擇一；電梯地毯使用吸塵器除塵", tool: "掃把 / 平板拖把 / 吸塵器", count: 2 },
+  { id: "t8", area: "一樓走廊", desc: "清除室外走廊落葉與鞋底砂石，僅需掃地", tool: "掃把 / 畚斗", count: 1 },
+  { id: "t9", area: "廁所（無小便斗）", desc: "每次聚會擇一重點清潔；馬桶、洗手台、門鎖消毒", tool: "<span class='badge-cloth cloth-red'>紅布</span>(廁所專用) / 馬桶刷", count: 1 },
+  { id: "t10", area: "廁所（有小便斗）", desc: "每次聚會擇一重點清潔；小便斗、馬桶、水龍頭消毒", tool: "<span class='badge-cloth cloth-red'>紅布</span>(廁所專用) / 潔廁劑", count: 1 },
+  { id: "t11", area: "椅墊 & 椅背", desc: "使用毛滾黏把徹底清除椅墊上之毛屑與微塵", tool: "黏塵滾輪 / <span class='badge-cloth cloth-green'>綠布</span>", count: 2 },
+  { id: "t12", area: "垃圾清運（週三）", desc: "聚會後打包所有垃圾並分類清運至指定處", tool: "垃圾袋", count: 1, isGroupTask: "A" },
+  { id: "t13", area: "垃圾清運（六）", desc: "聚會後打包所有垃圾並分類清運至指定處", tool: "垃圾袋", count: 1, isGroupTask: "B" }
+];
 
-// 介面交互 (維持原有)
-function addLeaveRow(defaultName = "", defaultDate = "") {
-  const tbody = document.getElementById("leaveTbody");
-  const tr = document.createElement("tr");
-  let optionsHtml = '<option value="">-- 請選擇人員 --</option>';
-  allStaffNames.forEach(name => {
-    const selected = name === defaultName ? 'selected' : '';
-    optionsHtml += `<option value="${name}" ${selected}>${name}</option>`;
-  });
-  tr.innerHTML = `<td><select class="leave-name">${optionsHtml}</select></td><td><input type="date" class="leave-date" value="${defaultDate}"></td><td><input type="date" class="leave-date"></td><td><input type="date" class="leave-date"></td><td><button class="btn-danger" onclick="this.closest('tr').remove()">刪除</button></td>`;
-  tbody.appendChild(tr);
+// 當前排班資料狀態
+let currentSchedule = [];
+let autoVersionCounter = 1;
+const STORAGE_HISTORY_KEY = "puli_cleaning_schedule_history_v1";
+
+// 隨機洗牌工具
+function shuffle(array) {
+  return [...array].sort(() => Math.random() - 0.5);
 }
 
-function getAbsentListForPeriod(startDateStr, endDateStr) {
-  const absentSet = new Set();
-  const rows = document.querySelectorAll("#leaveTbody tr");
-  const start = new Date(startDateStr);
-  const end = new Date(endDateStr);
-  rows.forEach(row => {
-    const name = row.querySelector(".leave-name").value;
-    if (!name) return;
-    row.querySelectorAll(".leave-date").forEach(input => {
-      if (input.value) {
-        const leaveDate = new Date(input.value);
-        if (leaveDate >= start && leaveDate <= end) {
-          absentSet.add(name);
-          if (spouseMap[name]) absentSet.add(spouseMap[name]);
+// 取得今天 YYYYMMDD
+function getTodayString() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 依據當前選取的兩個小組進行「去重不重複派班」
+function autoAssignTasks(saveSnapshot = true) {
+  const grpA = document.getElementById("groupSelectA").value;
+  const grpB = document.getElementById("groupSelectB").value;
+
+  if (grpA === grpB) {
+    showToast("⚠️ 請選擇兩個不同的輪值小組！");
+    return;
+  }
+
+  // 匯總兩小組名單並洗牌去重
+  let pool = shuffle(Array.from(new Set([...groupRoster[grpA], ...groupRoster[grpB]])));
+  const assignedSet = new Set();
+  const newAssignments = [];
+
+  taskDefinitions.forEach(task => {
+    let assignedNames = [];
+    if (task.isGroupTask) {
+      const gCode = task.isGroupTask === "A" ? grpA : grpB;
+      assignedNames = [`${gCode}組成員`];
+    } else {
+      for (let i = 0; i < task.count; i++) {
+        // 從尚未被指派的人員中挑選
+        const candidate = pool.find(p => !assignedSet.has(p));
+        if (candidate) {
+          assignedNames.push(candidate);
+          assignedSet.add(candidate);
+        } else {
+          // 若人數不足時，允許標註彈性調整
+          assignedNames.push("小組支援");
         }
       }
+    }
+    newAssignments.push({
+      ...task,
+      assigned: assignedNames.join("、")
     });
   });
-  return absentSet;
+
+  currentSchedule = newAssignments;
+  renderScheduleTable();
+
+  const versionName = `版本 ${autoVersionCounter++} (自動隨機)`;
+  document.getElementById("currentVersionDisplay").innerText = `當前版本：${versionName}`;
+
+  if (saveSnapshot) {
+    saveToHistory(versionName, "自動生成");
+  }
 }
 
-function initCounts() { serviceCounts = {}; allStaffNames.forEach(name => { serviceCounts[name] = 0; }); }
-function shuffle(array) { return [...array].sort(() => Math.random() - 0.5); }
-
-// 排班核心邏輯 (維持原有嚴格約束)
-function pickAVMainPair(assignedThisPeriod, absentSet) {
-  const validPairs = [];
-  [["洪承緯", "洪書念"], ["吳和融", "吳閔媛"]].forEach(([husband, wife]) => {
-    if (!assignedThisPeriod.has(husband) && !assignedThisPeriod.has(wife) && !absentSet.has(husband) && !absentSet.has(wife)) {
-      validPairs.push([husband, wife]);
-    }
-  });
-  const availMen = avCompMen.filter(m => !assignedThisPeriod.has(m) && !absentSet.has(m));
-  availMen.forEach(man => {
-    if (man === "洪承緯" && !assignedThisPeriod.has("洪書念") && !absentSet.has("洪書念")) return;
-    if (man === "吳和融" && !assignedThisPeriod.has("吳閔媛") && !absentSet.has("吳閔媛")) return;
-    ["許郁娸", "祝暉晴"].filter(s => !assignedThisPeriod.has(s) && !absentSet.has(s)).forEach(sis => { validPairs.push([man, sis]); });
-    availMen.filter(m2 => m2 !== man).forEach(m2 => { validPairs.push([man, m2]); });
-  });
-  if (validPairs.length === 0) return ["人力不足", "人力不足"];
-  const selected = shuffle(validPairs).sort((a, b) => ((serviceCounts[a[0]]||0)+(serviceCounts[a[1]]||0)) - ((serviceCounts[b[0]]||0)+(serviceCounts[b[1]]||0)))[0];
-  assignedThisPeriod.add(selected[0]); assignedThisPeriod.add(selected[1]);
-  serviceCounts[selected[0]] = (serviceCounts[selected[0]]||0)+1; serviceCounts[selected[1]] = (serviceCounts[selected[1]]||0)+1;
-  return selected;
+// 渲染表格
+function renderScheduleTable() {
+  const tbody = document.getElementById("scheduleTableBody");
+  tbody.innerHTML = currentSchedule.map(item => `
+    <tr>
+      <td class="col-area">${item.area}</td>
+      <td class="col-desc">${item.desc}</td>
+      <td class="col-tools">${item.tool}</td>
+      <td class="col-staff">${item.assigned}</td>
+    </tr>
+  `).join('');
 }
 
-function pickAVSupportPair(assignedThisPeriod, absentSet) {
-  let availMen = shuffle(avCompMen.filter(m => !assignedThisPeriod.has(m) && !absentSet.has(m))).sort((a, b) => (serviceCounts[a]||0) - (serviceCounts[b]||0));
-  let cSup = "人力不足", aSup = "人力不足";
-  if (availMen.length >= 2) { cSup = availMen[0]; aSup = availMen[1]; }
-  else if (availMen.length === 1) { cSup = availMen[0]; const freeSis = avSisters.filter(s => !assignedThisPeriod.has(s) && !absentSet.has(s)); if(freeSis.length > 0) aSup = freeSis[0]; }
-  if (cSup !== "人力不足") { assignedThisPeriod.add(cSup); serviceCounts[cSup] = (serviceCounts[cSup]||0)+1; }
-  if (aSup !== "人力不足") { assignedThisPeriod.add(aSup); serviceCounts[aSup] = (serviceCounts[aSup]||0)+1; }
-  return [cSup, aSup];
+// ---------------- 歷史紀錄與版本追蹤系統 ----------------
+function getHistoryList() {
+  try {
+    const raw = localStorage.getItem(STORAGE_HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
 }
 
-function pickPerson(candidates, assignedThisPeriod, absentSet, localAssigned = new Set()) {
-  let avail = candidates.filter(p => !assignedThisPeriod.has(p) && !absentSet.has(p) && !localAssigned.has(p));
-  if (avail.length === 0) { avail = candidates.filter(p => !absentSet.has(p) && !localAssigned.has(p)); }
-  if (avail.length === 0) return "人力不足";
-  const picked = shuffle(avail).sort((a, b) => (serviceCounts[a]||0) - (serviceCounts[b]||0))[0];
-  assignedThisPeriod.add(picked); localAssigned.add(picked); serviceCounts[picked] = (serviceCounts[picked]||0)+1;
-  return picked;
+function setHistoryList(list) {
+  localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(list));
+  updateHistoryBadge();
 }
 
-// 生成排班結果並渲染表格
-function generatePeriodSchedule(periodName, startDateStr, endDateStr) {
-  const assigned = new Set();
-  const absentSet = getAbsentListForPeriod(startDateStr, endDateStr);
-
-  const [computerMain, audioMain] = pickAVMainPair(assigned, absentSet);
-  const [computerSupport, audioSupport] = pickAVSupportPair(assigned, absentSet);
-
-  const openLocal = new Set();
-  const open1 = pickPerson(staffPool.openDoor, assigned, absentSet, openLocal);
-  const open2 = pickPerson(staffPool.openDoor, assigned, absentSet, openLocal);
-
-  const gDoorLocal = new Set();
-  const gDoorMain = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
-  const gDoorSupport1 = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
-  const gDoorSupport2 = pickPerson(staffPool.greeterDoor, assigned, absentSet, gDoorLocal);
-
-  const gCountLocal = new Set();
-  const gCountMain = pickPerson(staffPool.greeterCount, assigned, absentSet, gCountLocal);
-  const gCountSupport = pickPerson(staffPool.greeterCount, assigned, absentSet, gCountLocal);
-
-  const stageLocal = new Set();
-  const stageMain = pickPerson(staffPool.stageService, assigned, absentSet, stageLocal);
-  const stageSupport = pickPerson(staffPool.stageService, assigned, absentSet, stageLocal);
-
-  // 渲染為公告用簡約排版 (支援人員換行、變小)
-  return `<tr>
-    <td><b>${periodName}</b></td>
-    <td>${open1}<br>${open2}</td>
-    <td>${computerMain}<span class="support-tag">${computerSupport} (支)</span></td>
-    <td>${audioMain}<span class="support-tag">${audioSupport} (支)</span></td>
-    <td>${gDoorMain}<span class="support-tag">${gDoorSupport1}, ${gDoorSupport2} (支)</span></td>
-    <td>${gCountMain}<span class="support-tag">${gCountSupport} (支)</span></td>
-    <td>${stageMain}<span class="support-tag">${stageSupport} (支)</span></td>
-  </tr>`;
+function updateHistoryBadge() {
+  const list = getHistoryList();
+  document.getElementById("historyCount").innerText = list.length;
 }
 
-function getTodayString() {
-  const today = new Date();
-  return `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+function saveToHistory(verName, source = "手動儲存") {
+  const list = getHistoryList();
+  const monthVal = document.getElementById("scheduleMonth").value;
+  const grpA = document.getElementById("groupSelectA").value;
+  const grpB = document.getElementById("groupSelectB").value;
+
+  const now = new Date();
+  const timeStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+  const snapshot = {
+    id: "snap_" + Date.now(),
+    versionName: verName,
+    source: source,
+    timestamp: timeStr,
+    month: monthVal,
+    groupA: grpA,
+    groupB: grpB,
+    schedule: currentSchedule
+  };
+
+  list.unshift(snapshot); // 最新版排最前
+  setHistoryList(list);
+  showToast(`已建立快照：${verName}`);
 }
 
-// 主生成函數
-function generateSchedule() {
-  initCounts();
-  const monthVal = document.getElementById("monthSelect").value;
-  if(!monthVal) return;
-  const [year, month] = monthVal.split("-");
-  
-  // 更新圖片內的標題與日期
-  document.getElementById("scheduleTitle").innerText = `${parseInt(month)}月 部門服務分配表`;
-  document.getElementById("createdDateDisplay").innerText = `發佈日期：${getTodayString()}`;
-
-  const lastDay = new Date(year, month, 0).getDate(); // 計算該月最後一天
-  const tbody = document.querySelector("#resultTable tbody");
-  tbody.innerHTML = 
-    generatePeriodSchedule(`${parseInt(month)}月1-15日`, `${year}-${month}-01`, `${year}-${month}-15`) + 
-    generatePeriodSchedule(`${parseInt(month)}月16-${lastDay}日`, `${year}-${month}-16`, `${year}-${month}-${lastDay}`);
+function createManualSnapshot() {
+  const customName = prompt("請輸入此版本名稱或註記備忘：", `自訂修訂版 (${getTodayString()})`);
+  if (customName) {
+    saveToHistory(customName, "手動建立");
+  }
 }
 
-// 🖼️ 匯出公告用 PNG 圖片 (嚴格符合 4:3 比例與公告排版)
+function openHistoryModal() {
+  renderHistoryModalList();
+  document.getElementById("historyModal").style.display = "flex";
+}
+
+function closeHistoryModal() {
+  document.getElementById("historyModal").style.display = "none";
+}
+
+function renderHistoryModalList() {
+  const container = document.getElementById("historyListContainer");
+  const list = getHistoryList();
+
+  if (list.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding: 30px; color: #94a3b8;"><i class="fa-regular fa-folder-open" style="font-size:26px;"></i><br><br>尚無歷史快照版本紀錄</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(item => `
+    <div class="history-item">
+      <div class="history-meta">
+        <div class="history-title">
+          ${item.versionName}
+          <span class="history-badge">${item.month}</span>
+          <span class="history-badge">${item.groupA}組 + ${item.groupB}組</span>
+        </div>
+        <div class="history-time"><i class="fa-regular fa-clock"></i> 建立時間：${item.timestamp} | 來源：${item.source}</div>
+      </div>
+      <div style="display:flex; gap: 8px;">
+        <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="loadHistoryVersion('${item.id}')"><i class="fa-solid fa-arrow-rotate-left"></i> 載入此版</button>
+        <button class="btn-danger-sm" onclick="deleteHistoryItem('${item.id}')"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadHistoryVersion(snapshotId) {
+  const list = getHistoryList();
+  const target = list.find(s => s.id === snapshotId);
+  if (!target) return;
+
+  currentSchedule = target.schedule;
+  document.getElementById("scheduleMonth").value = target.month;
+  document.getElementById("groupSelectA").value = target.groupA;
+  document.getElementById("groupSelectB").value = target.groupB;
+
+  updateMonthDisplay();
+  renderScheduleTable();
+  document.getElementById("currentVersionDisplay").innerText = `當前版本：${target.versionName} (已載入歷史)`;
+  closeHistoryModal();
+  showToast(`已還原載入：${target.versionName}`);
+}
+
+function deleteHistoryItem(snapshotId) {
+  let list = getHistoryList();
+  list = list.filter(s => s.id !== snapshotId);
+  setHistoryList(list);
+  renderHistoryModalList();
+  showToast("已刪除該歷史版本");
+}
+
+function clearAllHistory() {
+  if (confirm("確定要清空所有歷史版本紀錄嗎？此動作無法復原。")) {
+    setHistoryList([]);
+    renderHistoryModalList();
+    showToast("所有歷史紀錄已清空");
+  }
+}
+
+// ---------------- 介面輔助與匯出功能 ----------------
+function updateMonthDisplay() {
+  const mVal = document.getElementById("scheduleMonth").value;
+  const [yyyy, mm] = mVal.split("-");
+  document.getElementById("bannerTitle").innerText = `${yyyy}年${parseInt(mm)}月 王國聚會所清潔安排表`;
+  triggerGroupChange();
+}
+
+function triggerGroupChange() {
+  const grpA = document.getElementById("groupSelectA").value;
+  const grpB = document.getElementById("groupSelectB").value;
+  document.getElementById("bannerGroups").innerText = `本月當值輪值小組：埔里 ${grpA}小組 ＋ 埔里 ${grpB}小組`;
+}
+
+// 檢視名冊 Modal
+function openGroupRosterModal() {
+  const container = document.getElementById("rosterDisplayArea");
+  container.innerHTML = Object.entries(groupRoster).map(([code, members]) => `
+    <div style="border:1px solid #e2e8f0; border-radius:8px; padding:12px; background:#f8fafc;">
+      <h4 style="margin:0 0 8px 0; color:var(--primary); font-size:15px;">埔里 ${code}小組 (${members.length}人)</h4>
+      <div style="font-size:13px; line-height: 1.8; color:#334155;">
+        ${members.join("、")}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById("groupRosterModal").style.display = "flex";
+}
+function closeGroupRosterModal() { document.getElementById("groupRosterModal").style.display = "none"; }
+
+// 匯出 4:3 高解析 PNG
 function exportToPNG() {
-  const target = document.getElementById("exportArea");
-  const monthVal = document.getElementById("monthSelect").value;
-  
-  // 顯示加載中提示 (選擇性)
-  const btn = document.querySelector('.btn-png');
-  const originalText = btn.innerText;
-  btn.innerText = "正在產出圖片...";
-  btn.disabled = true;
+  const canvasTarget = document.getElementById("exportCanvas");
+  const monthVal = document.getElementById("scheduleMonth").value;
+  showToast("正在繪製公告圖片，請稍候...");
 
-  html2canvas(target, {
+  html2canvas(canvasTarget, {
+    scale: 2,
     backgroundColor: "#ffffff",
-    scale: 2, // 提升清晰度
-    useCORS: true, // 允許跨域圖片 (如有)
-    width: 1200, // 強制擷取寬度
-    height: 900  // 強制擷取高度
+    useCORS: true
   }).then(canvas => {
     const link = document.createElement("a");
-    link.download = `${monthVal}_公告班表.png`;
+    link.download = `${monthVal}_聚會所清潔工作安排表_4比3.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
-    
-    // 恢復按鈕狀態
-    btn.innerText = originalText;
-    btn.disabled = false;
+    showToast("圖片已成功下載！");
   });
 }
 
-// 📄 匯出 PDF / 列印
-function exportToPDF() { window.print(); }
+function showToast(msg) {
+  const box = document.getElementById("toastBox");
+  const t = document.createElement("div");
+  t.className = "toast-msg";
+  t.innerHTML = `<i class="fa-solid fa-circle-check" style="color:#38bdf8;"></i> ${msg}`;
+  box.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
 
-// 初始載入
+// 初始化系統
 window.onload = function() {
-  addLeaveRow("洪承緯", "2026-08-05"); // 預設請假範例
-  generateSchedule();
+  document.getElementById("bannerDate").innerText = `發佈日期：${getTodayString()}`;
+  updateMonthDisplay();
+  updateHistoryBadge();
+  autoAssignTasks(true); // 首次載入自動指派一次並建置版本 1 快照
 };
 </script>
 
